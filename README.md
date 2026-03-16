@@ -4,15 +4,25 @@ MYOS is a deterministic operating system for AI. Instead of letting AI agents ru
 
 ## What it does
 
-- Every AI action goes through a math-based authority check before it executes
-- Work is broken into small units called cubelets (think processes), grouped into pods (think jobs)
-- All decisions are logged on a tamper-proof chain - anyone can read them
-- The system is built entirely with NixOS, so the same config always produces the same output
-- Context doesn't live in an LLM's memory - it's externalized to a knowledge base and typed data graphs, so nothing gets lost
+- **750 cubelets** organized as a Rubik's Lattice (10 domain stages x 5 framework layers x 15 per cell) - each with a named role, typed I/O, and formal invariant bindings
+- **Three model types** - math-bound (~350, strongest isolation), ML/DL (~250, Wasm), LLM (~100, containers) - the right tool at the right security level
+- **Dual-gate authority** - every action must pass both an AV (Authority Value) permission check AND STK kernel invariant satisfaction, enforced by ProofPerl
+- **Graph-informed assembly** - pods are assembled using STSol templates and the Cubelet Interaction Graph (CIG), not blind scoring
+- **Fabric-routed verification** - all decisions logged on-chain, domain data routed through named STF fabric threads (EthosLedger, KarbonLedger, etc.)
+- **Reproducible everything** - NixOS from boot to deployment, same config always produces same output
+- **Knowledge on structure** - KB built on the CIG backbone (Neo4j), domain KBs mapped to fabric threads, never starts empty
 
 ## How it's different
 
-Most AI agent frameworks are one LLM doing everything in a growing context window. MYOS decomposes the problem: 750 cubelets each do one thing with typed inputs and outputs, orchestrators coordinate using externalized state, and authority math governs what any entity is allowed to do. No single component holds the whole picture - the architecture does.
+Most AI agent frameworks are one LLM doing everything in a growing context window. MYOS decomposes the problem into a structured lattice:
+
+- **5 frameworks** define the pipeline: STA (intent) -> STI (logic) -> STD (execution) -> STF (connectivity) -> STK (proof)
+- **10 stages** span from Identity (Stage 0) through Meta-Ethics (Stage 9) - Stages 0-4 are the MYOS core, Stages 5-9 activate with Kusari
+- **150 STK invariants** across 7 families (safety, privacy, fairness, verifiability, accountability, planetary integrity, ethical reflexivity) enforce formal constraints no entity can bypass, anchored to the PCCSCEFVRI ethical values
+- **Rubik's Moves** (Rotate.Stage, Lock.Invariants, Thread.Sync) govern lattice evolution - every structural change is STK-constrained and logged on-chain
+- The **autopoietic loop** (Stage 9 -> Stage 0 feedback) gives the system a defined ethical objective function for its reinforcement learning
+
+No single component holds the whole picture - the architecture does.
 
 ## Where to start
 
@@ -30,4 +40,9 @@ Most AI agent frameworks are one LLM doing everything in a growing context windo
 | Runtime scheduling and isolation          | [08-runtime-infrastructure.md](architecture/08-runtime-infrastructure.md)                             |
 | Networking and cross-device communication | [09-communication-networking.md](architecture/09-communication-networking.md)                         |
 | Node types and orchestrator hierarchy     | [10-node-topology-orchestrator-hierarchy.md](architecture/10-node-topology-orchestrator-hierarchy.md) |
+| How repos map to architecture layers      | [11-repository-mapping.md](architecture/11-repository-mapping.md)                                     |
 | How knowledge is stored and governed      | [12-knowledge-base.md](architecture/12-knowledge-base.md)                                             |
+
+## Cubelet Universe (source definitions)
+
+The full 750-cubelet registry, interaction graph spec, Neo4j import scripts, and implementation roadmap live in [`cubeletuni/`](../cubeletuni/). These are the source definitions that the architecture docs reference.

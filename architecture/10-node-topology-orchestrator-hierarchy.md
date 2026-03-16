@@ -1,6 +1,6 @@
 # MYOS Node Topology & Orchestrator Hierarchy - Infrastructure, Hardware & LLM Assignment
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -10,10 +10,12 @@ This document defines the **physical and logical topology** of a MYOS deployment
 
 MYOS is a **hybrid centralized-decentralized system**:
 
-- **Centralized core**: System Orchestrator (singleton brain) + Authority Engine - runs on a single powerful server
+- **Centralized core**: System Orchestrator (singleton brain) + Authority Engine - runs on a single powerful server. The core server also hosts the **System KB** and the **CIG** (Neo4j graph database with 750 nodes, 9 edge types, 1500+ edges).
 - **Decentralized compute**: Domain Orchestrators, Deployment Orchestrators, cubelets - distributed across zones and nodes
 - **Decentralized chain**: Validators run on dedicated x86/ARM servers, chain is not centralized
 - **Edge sensors**: RISC-V IoT devices for data collection, light math, and light validation
+
+Node types map to the cubelet lattice stages: **edge RISC-V nodes** run Stage 0-4 cubelets (MYOS core, math-bound and quantized ML only), **GPU compute nodes** run Stage 3 LLM cubelets requiring container isolation and GPU inference, and the **core server** hosts the System KB + CIG (Neo4j) as the central knowledge and graph infrastructure. Stages 0-4 represent the MYOS core activation, while Stages 5-9 are Kusari-era cubelets activated as the system evolves.
 
 ---
 
@@ -908,14 +910,16 @@ INV-8:  Math and ML cubelets can run on x86 OR RISC-V (capability-based assignme
 INV-9:  Chain validators run on dedicated x86/ARM hardware
 INV-10: Edge RISC-V sensors run NixOS minimal with sensor agent + light math + light validator
 INV-11: NixOS is used on ALL node types (full or minimal profile)
-INV-12: Three isolation tiers: wasm_unikernel (safety-critical), wasm_native (non-critical), container (LLM/cross-lang)
-INV-13: Paid LLMs for System + Domain Orchs; open-source LLMs for Deployment + Pod Orchs
-INV-14: Hardware architecture is abstracted via HAL - upper layers never access hardware directly
-INV-15: Edge nodes in offline mode use cached authority rules; all offline decisions are synced on reconnect
-INV-16: The entire system image is reproducibly buildable from a single flake.nix
-INV-17: Domain Orchs have dedicated base resources + can request overflow from Deployment Orchs
-INV-18: The entire MYOS runtime is a single composable NixOS module (services.myos) - node role determines activated services
-INV-19: Wasm runtime is swappable via NixOS module config - cubelet code targets WASI/WASI-NN interfaces, not a specific runtime
+INV-12: Edge RISC-V nodes run only math-bound and quantized ML cubelets (no LLMs)
+INV-13: CIG (Neo4j) runs on the core server, replicated to domain servers
+INV-14: Three isolation tiers: wasm_unikernel (safety-critical), wasm_native (non-critical), container (LLM/cross-lang)
+INV-15: Paid LLMs for System + Domain Orchs; open-source LLMs for Deployment + Pod Orchs
+INV-16: Hardware architecture is abstracted via HAL - upper layers never access hardware directly
+INV-17: Edge nodes in offline mode use cached authority rules; all offline decisions are synced on reconnect
+INV-18: The entire system image is reproducibly buildable from a single flake.nix
+INV-19: Domain Orchs have dedicated base resources + can request overflow from Deployment Orchs
+INV-20: The entire MYOS runtime is a single composable NixOS module (services.myos) - node role determines activated services
+INV-21: Wasm runtime is swappable via NixOS module config - cubelet code targets WASI/WASI-NN interfaces, not a specific runtime
 ```
 
 ---
@@ -931,4 +935,7 @@ INV-19: Wasm runtime is swappable via NixOS module config - cubelet code targets
 - **Boot & Trust Chain (07):** NixOS replaces Buildroot/Yocto. NixOS generations replace A/B partitioning. Different boot profiles per node type.
 - **Runtime Infrastructure (08):** Unikernels for math/ML isolation. NixOS systemd replaces custom service management. CPU partitioning applies to x86/ARM core server.
 - **Communication & Networking (09):** Network topology updated for centralized core + distributed compute model. Edge sensors connect as lightweight network clients.
+- **Master Document (00-master.md) - Cubelet Lattice:** The 750-cubelet lattice (10 stages x 5 frameworks x 15 per cell) maps to node types: Stages 0-4 (MYOS core) run on edge and general compute nodes, Stages 5-9 (Kusari-era) activate on capable nodes as the system evolves. STSol templates (pre-defined pod templates as vertical lattice cross-sections) determine which node types are needed for a given pod.
+- **CIG (Cubelet Interaction Graph):** The CIG (Neo4j, 750 nodes, 1500+ edges) runs on the core server and is replicated to domain servers. CIG FEDERATES edges define cross-device cubelet relationships that the topology must support.
+- **STK Invariants & PCCSCEFVRI:** The 150 STK invariants enforced by the Authority Engine on the core server apply globally. PCCSCEFVRI serves as the ethical value anchor across all node types.
 - **Knowledge Base (12-knowledge-base.md):** KB hierarchy maps to node topology: System KB resides on the core server (global knowledge), Domain KBs reside on domain servers (vertical-specific knowledge), and Pod KBs are ephemeral on compute nodes (task-scoped knowledge created and destroyed with pods). Edge sensors contribute sensor data entries to the KB with high decay rates.

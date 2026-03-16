@@ -1,6 +1,6 @@
 # MYOS Verification & Audit - On-Chain Decisions, Off-Chain Data & Consensus Architecture
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -23,6 +23,8 @@ OFF-CHAIN (event log + content-addressed + time-series DB):
 ```
 
 **All logs are publicly readable.** On-chain data is readable by anyone (general public, auditors, regulators, other systems). Off-chain data is also publicly accessible - if it's logged, it's transparent. This is fundamental: hiding audit data defeats the purpose of a verifiable system.
+
+**STK invariant satisfaction records** are included in verification logs for every pod execution. The 150 formal invariants across 7 families are evaluated by the Authority Engine, and PROVES edges in the CIG are verified and logged on-chain. Verification data is **routed through STF fabric threads** (e.g., EthosLedger, KarbonLedger) so that domain-specific audit records flow to the appropriate off-chain stores based on their fabric thread classification.
 
 ---
 
@@ -764,9 +766,11 @@ INV-9:  Consensus module can be replaced without changing application code
 INV-10: Cardano anchoring is optional and configurable per deployment
 INV-11: Tier migration preserves content hashes (data integrity across tiers)
 INV-12: Cold tier data is always retrievable (never permanently deleted unless configured)
-INV-13: Light validation nodes can verify individual decisions via merkle proofs
-INV-14: The chain is designed to evolve into or integrate with Kusari without rewrite
-INV-15: Decision commitment objects are self-contained and independently verifiable
+INV-13: STK invariant satisfaction (PROVES edges verified) is logged on-chain for every pod execution
+INV-14: STF fabric threads route domain-specific data to appropriate off-chain stores
+INV-15: Light validation nodes can verify individual decisions via merkle proofs
+INV-16: The chain is designed to evolve into or integrate with Kusari without rewrite
+INV-17: Decision commitment objects are self-contained and independently verifiable
 ```
 
 ---
@@ -779,4 +783,7 @@ INV-15: Decision commitment objects are self-contained and independently verifia
 - **Cubelet I/O Contract (04-cubelet-io-contract.md):** Pipeline edge hashes are logged off-chain. On-chain vs off-chain split is defined here.
 - **Pod Orchestrator (05-pod-orchestrator.md):** Pod Orch decisions that affect authority (quarantine, restructure, escalation) go on-chain. DAG construction and synthesis traces go off-chain.
 - **Kusari (kusari.md):** The MYOS chain is designed to evolve into a Kusari KVM, sidechain, or consensus contributor. Modular architecture enables this without rewrite.
+- **Master Document (00-master.md):** The cubelet lattice (750 cubelets = 10 stages x 5 frameworks x 15 per cell) defines the complete verification surface. Every cell in the lattice has STK invariants that must be satisfied and logged.
+- **Authority Model (01) - STK Dual-Gate:** STK invariant satisfaction is enforced by the Authority Engine's dual-gate model. PROVES edges in the CIG are verified before any pod execution proceeds, and results are logged on-chain.
+- **STF Fabric Threads:** The 11+ named ledgers (EthosLedger, KarbonLedger, etc.) route domain-specific verification data to appropriate off-chain stores. Each fabric thread determines which off-chain tier and retention policy applies to its data.
 - **Knowledge Base (12-knowledge-base.md):** KB metadata changes (create, update, deprecate entries) are on-chain events. KB content is stored off-chain with hash verification using the same content-addressed storage infrastructure. KB confidence scores (0-1000) follow the same mathematical model as Authority Vectors.

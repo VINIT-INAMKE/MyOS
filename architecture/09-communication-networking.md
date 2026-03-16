@@ -1,12 +1,14 @@
 # MYOS Communication & Networking - Device-to-Device, P2P & Cross-System Messaging
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
 ## 1. Overview
 
 This document defines how MYOS devices communicate with each other, discover peers, authenticate connections, and exchange data across a distributed network of devices.
+
+P2P channels are **multiplexed per STF fabric thread** - each of the 11+ named ledgers (EthosLedger, KarbonLedger, etc.) gets its own logical stream within the multiplexed connection, ensuring that domain-specific data flows are isolated and prioritized appropriately at the network level. Cross-device pod operations use **CIG FEDERATES edges** to determine which cubelets on remote devices can participate in distributed pods; the FEDERATES edge type in the CIG (Neo4j, 750 nodes, 9 edge types, 1500+ edges) explicitly encodes cross-device cubelet relationships and must be verified before any cross-device pipeline edge is established.
 
 MYOS communication is built on top of existing projects from the repository ecosystem:
 
@@ -619,8 +621,10 @@ INV-7:  Network partition does not cause data loss (buffering + reconciliation)
 INV-8:  Offline mode preserves all operations locally for later sync
 INV-9:  Bandwidth prioritization ensures chain consensus messages are never starved
 INV-10: Cross-device pipeline edges have relaxed time budgets accounting for network latency
-INV-11: Federated MCP tool calls are authenticated, authority-checked, and logged
-INV-12: Connection failures trigger automatic reconnection with exponential backoff
+INV-11: STF fabric threads are multiplexed across P2P channels
+INV-12: Cross-device cubelet operations require dual authorization and CIG FEDERATES edge verification
+INV-13: Federated MCP tool calls are authenticated, authority-checked, and logged
+INV-14: Connection failures trigger automatic reconnection with exponential backoff
 ```
 
 ---
@@ -633,5 +637,8 @@ INV-12: Connection failures trigger automatic reconnection with exponential back
 - **Pod Assembly (03):** Cross-device cubelet selection uses ANS for discovery and qudag-network for transport.
 - **Cubelet I/O (04):** Cross-device pipeline edges add serialization + encryption overhead. Latency accounted for in time budgets.
 - **Verification & Audit (06):** Chain consensus messages flow over the chain channel. Off-chain events from remote devices are synced via telemetry channel.
+- **Master Document (00-master.md) - CIG & Lattice:** CIG FEDERATES edges define which cubelets can participate in cross-device pod operations. The network layer verifies FEDERATES edges before establishing cross-device pipeline connections.
+- **STF Fabric Threads:** The 11+ named ledgers are multiplexed as separate logical streams across P2P channels, ensuring domain-specific data isolation at the network level. Each fabric thread's priority maps to the bandwidth management priority scheme.
+- **STK Invariants:** Cross-device operations must satisfy STK invariants on both sides. Dual authorization includes STK invariant verification in addition to AV threshold checks.
 - **Existing Repos:** qudag-network (P2P), qudag-protocol (framing), qudag-crypto (encryption), ANS (identity), Federated MCP (tool coordination), Agentic Edge Functions (edge agent deployment).
 - **Knowledge Base (12-knowledge-base.md):** Cross-device KB queries (e.g., System KB lookups from domain servers, Domain KB queries from compute nodes) flow through the network stack. Edge sensor data feeds into the KB as sensor data entries with high decay rates, reflecting the ephemeral nature of real-time observations.

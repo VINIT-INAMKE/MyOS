@@ -1,6 +1,6 @@
 # MYOS Conflict Resolution - Escalation Chain & AV-Weighted Voting
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -18,6 +18,10 @@ Expected resolution distribution:
 
 Every level has a **timeout**. If a level cannot resolve within its deadline, the conflict automatically escalates to the next level. If Level 4 (human) times out, the system defaults to the **safest available option**.
 
+At Level 3, the System Orchestrator uses the **Cubelet Interaction Graph (CIG)** to inform its arbitration. It follows **GOVERNS edges** from STA cubelets to identify domain-specific policies that apply to the conflicting cubelets, and checks **STK invariants** (via PROVES edges) to determine which proposals satisfy formal constraints. This makes Level 3 arbitration domain-aware rather than relying solely on generic weighted scoring.
+
+**Domain Orchestrators** handle domain-specific conflicts within their vertical (e.g., conflicts between Stage 3 cubelets in the AI domain are routed to the AI Domain Orchestrator before reaching the System Orchestrator). This reduces Level 3 load and provides domain expertise.
+
 ---
 
 ## 2. What Constitutes a Conflict?
@@ -34,15 +38,20 @@ A conflict occurs when two or more entities disagree on an action, decision, or 
 | **Escalation request**              | A lower-authority entity disagrees with a higher-authority entity's decision      | Cubelet disagrees with Pod Orch and escalates                                                                                       |
 | **Cross-pod coordination conflict** | Two pods' actions would interfere with each other                                 | Physical: Pod A's motor command conflicts with Pod B's safety constraint. AI: Two sub-pods return contradictory analysis results    |
 | **Reasoning disagreement**          | Cubelets disagree on the reasoning chain or conclusion for an AI interaction task | LLM cubelet and knowledge cubelet disagree on the factual basis of a response                                                       |
+| **STK invariant conflict**          | An action satisfies one STK invariant but violates another                        | Carbon credit issuance (STK-8) satisfies MRV but conflicts with fiscal transparency (STK-6)                                        |
+| **Cross-stage dependency conflict** | A cubelet in one stage produces output incompatible with a dependent cubelet in another stage | STD-2-A (consent API) output format changes, breaking STI-3-A (AI reasoning logic) which depends on it via DEPENDS_ON edge         |
+| **Cross-framework disagreement**    | STA policy cubelet and STD runtime cubelet disagree on constraints                | STA-3-B (AI Safety Policy) defines stricter bounds than STD-3-B (inference runtime) can satisfy within its resource budget          |
 
 ### 2.2 Conflict Detection
 
 Conflicts are detected by:
 
 1. **Pod Orchestrator** - detects intra-pod conflicts (cubelets within the same pod disagree)
-2. **System Orchestrator** - detects inter-pod conflicts (pods' actions interfere with each other)
-3. **Authority Engine** - detects authority violations (entity attempts action beyond its AV)
-4. **Self-report** - an entity explicitly raises a disagreement via the escalation API
+2. **Domain Orchestrator** - detects intra-domain conflicts (cubelets within the same stage disagree across pods)
+3. **System Orchestrator** - detects inter-pod and cross-domain conflicts (pods' actions interfere, or cross-stage dependencies break)
+4. **Authority Engine** - detects authority violations (entity attempts action beyond its AV) and STK invariant violations
+5. **CIG constraint checker** - detects structural conflicts (a proposed action would violate GOVERNS, DEPENDS_ON, or PROVES edges in the Cubelet Interaction Graph)
+6. **Self-report** - an entity explicitly raises a disagreement via the escalation API
 
 ### 2.3 Conflict Record
 
@@ -53,9 +62,13 @@ conflict_record {
     conflict_id:        UUID
     conflict_type:      ConflictType
     timestamp:          Timestamp
-    participants:       [EntityId]
+    participants:       [EntityId]          // cubelet IDs (e.g., STI-3-B, STD-3-B)
+    participant_stages: [int]               // lattice stages involved (e.g., [3] or [3, 8])
+    participant_frameworks: [Framework]     // frameworks involved (e.g., [STI, STD])
     proposals:          [Proposal]          // what each participant wants to do
     relevant_dimension: DimensionName       // which AV dimension is relevant
+    stk_invariants:     [InvariantId]       // STK invariants relevant to this conflict
+    governing_policies: [CubeletId]         // STA cubelets that GOVERN the participants (via CIG)
     context:            ConflictContext      // task, environment, constraints
     resolution_level:   Level (1|2|3|4)     // which level resolved it
     resolution:         Resolution          // final decision
@@ -278,10 +291,26 @@ Level 3 is triggered when:
 - Level 2 fails quorum
 - Level 2 times out
 - The conflict is cross-pod (two different pods disagree - Level 2 cannot handle this because voting is intra-pod)
+- The conflict is cross-stage (cubelets from different lattice stages disagree)
+- An STK invariant conflict is detected (two invariants produce contradictory requirements)
+
+**Domain Orchestrator pre-filter:** Before reaching the System Orchestrator, domain-specific conflicts are routed to the relevant **Domain Orchestrator**. If the conflict involves cubelets from a single stage (e.g., all Stage 3 / AI), the Domain Orchestrator for that vertical attempts resolution first. Only if the Domain Orchestrator cannot resolve (insufficient confidence, cross-domain conflict, or timeout) does the conflict reach the System Orchestrator.
+
+```
+Domain Orchestrator pre-filter:
+  Conflict involves cubelets from Stage 3 only?
+    → Route to AI Domain Orchestrator
+    → Domain Orch attempts resolution using domain-specific STA policies
+    → If resolved → done (logged as Level 2.5)
+    → If not → escalate to System Orchestrator (Level 3)
+
+  Conflict involves cubelets from Stage 3 AND Stage 8?
+    → Cross-domain → goes directly to System Orchestrator (Level 3)
+```
 
 ### 5.2 Mechanism
 
-The System Orchestrator evaluates the conflict with **full system context**.
+The System Orchestrator evaluates the conflict with **full system context**, enriched by the **Cubelet Interaction Graph (CIG)**.
 
 ```
 Input:
@@ -289,6 +318,13 @@ Input:
   proposal_a, proposal_b
   AV of all participants
   vote results (if Level 2 was attempted)
+
+  CIG-derived context:
+      - GOVERNS edges: which STA cubelets define policies for the participants
+      - PROVES edges: which STK invariants must be satisfied
+      - DEPENDS_ON edges: what downstream cubelets are affected by the decision
+      - INFORMS edges: what data sources feed the participants
+
   system-wide state:
       - other active pods and their tasks
       - resource availability
@@ -298,13 +334,17 @@ Input:
 Evaluation:
   System Orchestrator has high AV floor (700) and typically high earned AV.
   It uses:
-    1. Authority comparison (its own AV vs. participants')
-    2. System-wide context (does one proposal conflict with other pods?)
-    3. Safety analysis (is one proposal safer?)
-    4. Policy rules (does one proposal violate system policy?)
+    1. STK invariant check (does either proposal violate a formal invariant?)
+    2. STA policy consultation (what do the governing policies say?)
+    3. Authority comparison (its own AV vs. participants')
+    4. System-wide context (does one proposal conflict with other pods?)
+    5. Safety analysis (is one proposal safer?)
+    6. Vote support (how did Level 2 vote, if applicable?)
 
 Decision:
-  if System Orch is confident:
+  if one proposal violates an STK invariant and the other doesn't:
+      → reject the violating proposal (invariant-based resolution)
+  elif System Orch is confident after evaluation:
       → make decision, log reasoning
   elif safety-critical:
       → escalate to Level 4 (human)
@@ -314,19 +354,28 @@ Decision:
 
 ### 5.3 System Orchestrator Decision Criteria
 
-The System Orchestrator evaluates proposals using a weighted scoring model:
+The System Orchestrator evaluates proposals using a weighted scoring model, now informed by CIG structural data:
 
 ```
 proposal_score = (
-    w1 × av_alignment          // does the proposal align with high-AV entities?
-  + w2 × safety_score          // how safe is this proposal?
-  + w3 × resource_efficiency   // how resource-efficient?
-  + w4 × policy_compliance     // does it comply with system policy?
-  + w5 × vote_support          // how much Level 2 vote support did it get?
+    w1 × stk_compliance        // does the proposal satisfy all relevant STK invariants?
+  + w2 × sta_alignment         // does it align with governing STA policies? (via GOVERNS edges)
+  + w3 × safety_score          // how safe is this proposal?
+  + w4 × av_alignment          // does it align with high-AV entities?
+  + w5 × resource_efficiency   // how resource-efficient?
+  + w6 × vote_support          // how much Level 2 vote support did it get?
 )
 
-Where w1..w5 are system-configured weights.
+Default weights:
+  w1 (stk_compliance):    0.25    // invariant satisfaction is weighted highest
+  w2 (sta_alignment):     0.20    // governing policy alignment
+  w3 (safety_score):      0.25    // safety remains critical
+  w4 (av_alignment):      0.10    // AV alignment (reduced from previous 0.25)
+  w5 (resource_efficiency):0.10
+  w6 (vote_support):      0.10
 ```
+
+**STK compliance is binary for hard invariants** - if a proposal violates `refusal_on_redline` or any safety-family invariant, its `stk_compliance` score is 0 regardless of other factors.
 
 If the score difference between proposals exceeds a **confidence margin**, the System Orchestrator decides. Otherwise, it escalates.
 
@@ -339,15 +388,21 @@ else:
     → escalate to Level 4
 ```
 
-### 5.4 Cross-Pod Conflicts
+### 5.4 Cross-Pod and Cross-Stage Conflicts
 
 For conflicts between pods (not within a pod), Level 3 is the **first** resolution level (Levels 1 and 2 are intra-pod only).
 
 ```
-Cross-pod conflict flow:
+Cross-pod conflict flow (same domain):
   Pod Orch A detects conflict with Pod B
-  → Pod Orch A sends conflict report to System Orchestrator
-  → System Orchestrator evaluates (Level 3)
+  → Route to Domain Orchestrator (if same stage/domain)
+  → Domain Orch resolves or escalates to System Orchestrator
+  → If unresolvable → Level 4 (human)
+
+Cross-stage conflict flow (different domains):
+  Cubelet in Stage 3 (AI) conflicts with cubelet in Stage 8 (Environment)
+  → Goes directly to System Orchestrator (no single Domain Orch covers both)
+  → System Orch consults diagonal CIG edges to understand the cross-domain relationship
   → If unresolvable → Level 4 (human)
 ```
 
@@ -621,14 +676,50 @@ Cascading conflict:
 
 ### 8.4 Conflict Between Orchestrators
 
-If two Pod Orchestrators disagree (cross-pod conflict), the conflict starts at **Level 3** (System Orchestrator), since Level 1 and 2 are intra-pod mechanisms.
+If two Pod Orchestrators disagree (cross-pod conflict), the conflict is first routed to the **Domain Orchestrator** (if both pods are in the same domain), then to **Level 3** (System Orchestrator) if the Domain Orchestrator cannot resolve.
 
 If the System Orchestrator is involved in a conflict (e.g., its decision is challenged), the conflict goes **directly to Level 4** (human), since there is no higher system authority.
 
 ```
-Pod Orch vs Pod Orch:     → Level 3 (System Orch arbitrates)
-Any entity vs System Orch: → Level 4 (Human arbitrates)
+Pod Orch vs Pod Orch (same domain):  → Domain Orch → Level 3 if needed
+Pod Orch vs Pod Orch (cross-domain): → Level 3 (System Orch arbitrates)
+Domain Orch vs Domain Orch:          → Level 3 (System Orch arbitrates)
+Any entity vs System Orch:           → Level 4 (Human arbitrates)
 ```
+
+### 8.5 STK Invariant Conflicts
+
+When two STK invariants produce contradictory requirements (e.g., `privacy.min_disclosure` requires withholding data, but `transparency.proof` requires publishing it), the conflict follows a special resolution path:
+
+```
+STK invariant conflict:
+  1. Identify which invariant families are in conflict
+  2. Check if one family has strict precedence:
+     Safety & Security > all other families (safety always wins)
+     Privacy & Consent > Accountability & Audit (privacy overrides transparency)
+     Ethical Reflexivity is the meta-arbiter for all other conflicts
+  3. If precedence resolves → apply the higher-precedence invariant
+  4. If no precedence → escalate to Level 4 (human must decide)
+  5. Log the conflict as an STK-level event for future invariant refinement
+```
+
+STK invariant conflicts are rare (they indicate a specification gap in the cubelet registry) and should trigger a review of the invariant definitions for the next system configuration update. Resolution may require a **Rubik's Move** (Lock.Invariants or Rotate.Stage) to update the invariant definitions - see Lattice Governance in [00-MYOS-master.md](00-MYOS-master.md). ProofPerl evaluates invariant expressions; PerlFrame maps them to PCCSCEFVRI values for precedence determination.
+
+### 8.6 Cross-Framework Conflicts
+
+When an STA cubelet (policy) and an STD cubelet (runtime) in the same stage disagree - e.g., the policy demands constraints the runtime cannot satisfy within its resource budget - the conflict follows the GOVERNS edge:
+
+```
+Cross-framework conflict:
+  STA-3-B (AI Safety Policy) governs STD-3-B (inference runtime) via GOVERNS edge
+  → STA cubelet's constraints take precedence (policy governs execution)
+  → STD cubelet must adapt or report inability
+  → If STD cannot comply → Pod Orchestrator restructures the pod
+     (substitute a different STD cubelet, or request additional resources)
+  → If no substitution possible → escalate to Domain Orchestrator
+```
+
+This follows the framework hierarchy: **STA → STI → STD → STF → STK**. Higher-abstraction frameworks set constraints; lower-abstraction frameworks implement them.
 
 ---
 
@@ -646,6 +737,12 @@ INV-8:  Cascading conflict depth is bounded (max_cascade_depth)
 INV-9:  Level 2 requires quorum to produce a valid result
 INV-10: Level 2 requires confidence above threshold to resolve
 INV-11: The safest option is always deterministically identifiable (fallback never fails)
+INV-12: STK invariant violations cannot be resolved by escalation - violating proposals are always rejected
+INV-13: Safety & Security invariant family takes precedence over all other STK families in conflict
+INV-14: STA cubelets' constraints take precedence over STD cubelets' preferences (policy governs execution)
+INV-15: Domain Orchestrators can only resolve conflicts within their own stage/domain
+INV-16: Cross-domain conflicts always route to System Orchestrator (no Domain Orch can arbitrate across domains)
+INV-17: STK invariant conflicts are logged as specification-gap events for review
 ```
 
 ---
@@ -664,15 +761,22 @@ conflict_resolution_config {
     level_2_quorum_ratio:            0.5
     level_2_confidence_threshold:    0.6
 
+    // Domain Orchestrator pre-filter (between L2 and L3)
+    domain_orch_enabled:             true
+    domain_orch_timeout_ms:          1000
+    domain_orch_confidence_margin:   0.15
+
     // Level 3
     level_3_timeout_ms:              2000
     level_3_confidence_margin:       0.15
+    level_3_cig_query_enabled:       true     // use CIG GOVERNS/PROVES edges for context
     level_3_scoring_weights {
-        av_alignment:                0.25
-        safety_score:                0.30
-        resource_efficiency:         0.15
-        policy_compliance:           0.15
-        vote_support:                0.15
+        stk_compliance:              0.25     // STK invariant satisfaction
+        sta_alignment:               0.20     // governing STA policy alignment
+        safety_score:                0.25
+        av_alignment:                0.10
+        resource_efficiency:         0.10
+        vote_support:                0.10
     }
 
     // Level 4
@@ -683,6 +787,17 @@ conflict_resolution_config {
     max_cascade_depth:               3
     escalation_penalty_enabled:      false    // penalize frivolous escalation?
     escalation_penalty_amount:       5        // minor AV penalty if enabled
+
+    // STK invariant conflict precedence (highest to lowest)
+    stk_precedence_order: [
+        "safety_security",           // Safety always wins
+        "privacy_consent",           // Privacy overrides transparency
+        "verifiability_determinism", // Proofs must exist
+        "fairness_equity",           // Fairness bounds honored
+        "accountability_audit",      // Audit trails maintained
+        "planetary_integrity",       // Environmental boundaries respected
+        "ethical_reflexivity"        // Meta-arbiter for unresolvable conflicts
+    ]
 
     // Safety override
     safety_emergency_bypass:         true     // emergencies skip all levels
@@ -695,6 +810,10 @@ All values are defined at system configuration time and are immutable at runtime
 
 ## 11. Interaction with Other Documents
 
-- **Authority Model (01-authority-model.md):** AV comparison is the foundation of Level 1 resolution. AV-weighted voting drives Level 2.
-- **Pod Assembly (03-pod-assembly.md):** Cross-pod conflicts detected during assembly or execution route through Level 3 (System Orchestrator).
-- **Knowledge Base (12-knowledge-base.md):** When an LLM output contradicts a verified KB entry, the contradiction is treated as a conflict and routed through the same 4-level escalation chain (AV comparison → pod vote → System Orch → human-in-the-loop). KB contradiction resolution follows identical timeout and fallback rules.
+- **Master Document (00-MYOS-master.md):** Defines the Rubik's Lattice structure, STSol pods, and the autopoietic loop. Conflict resolution operates within the lattice - participants are identified by their lattice position (e.g., STI-3-B vs STD-3-B).
+- **Authority Model (01-authority-model.md):** AV comparison is the foundation of Level 1 resolution. AV-weighted voting drives Level 2. STK invariants (enforced by the Authority Engine's dual-gate system) provide invariant-based resolution at Level 3 - a proposal that violates an STK invariant is rejected regardless of AV.
+- **Pod Assembly (03-pod-assembly.md):** Cross-pod conflicts detected during assembly or execution route through the Domain Orchestrator, then Level 3 (System Orchestrator). The CIG's DEPENDS_ON and GOVERNS edges inform which cubelets are structurally related to the conflict.
+- **Pod Orchestrator (05-pod-orchestrator.md):** Pod Orchestrators facilitate Level 2 voting and detect intra-pod conflicts. They route domain-specific conflicts to the appropriate Domain Orchestrator.
+- **Verification & Audit (06-verification-audit.md):** All conflict records, vote logs, and resolution decisions are logged on-chain. STK invariant violations during conflict resolution are flagged as specification-gap events.
+- **Node Topology (10-node-topology-orchestrator-hierarchy.md):** Defines the Domain Orchestrator topology - which Domain Orch handles which stages. Domain Orchestrators are parallel peers under System, and their domain boundaries determine conflict routing.
+- **Knowledge Base (12-knowledge-base.md):** When an LLM output contradicts a verified KB entry, the contradiction is treated as a conflict and routed through the same 4-level escalation chain (AV comparison → pod vote → Domain/System Orch → human-in-the-loop). KB contradiction resolution follows identical timeout and fallback rules. The CIG backbone provides structural context for KB contradictions.

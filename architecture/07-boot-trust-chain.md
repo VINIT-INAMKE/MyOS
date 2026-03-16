@@ -1,6 +1,6 @@
 # MYOS Boot & Trust Chain - Power-On to Operational State
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -24,6 +24,8 @@ BOOT SEQUENCE:
 ```
 
 Each stage verifies the next before handing off control. If any stage fails verification, the device halts and enters a **secure failure mode** (no partial boot, no degraded operation without explicit configuration).
+
+The boot process also includes **CIG (Cubelet Interaction Graph) initialization** - loading all 750 cubelet nodes and 1500+ edges (across 9 edge types) into the Neo4j graph database. Additionally, all **STK invariant definitions** (150 formal invariants across 7 families) are loaded and verified before the Authority Engine begins accepting requests. These steps ensure the full lattice topology and its formal guarantees are in place before any pod assembly can occur.
 
 ---
 
@@ -483,7 +485,7 @@ boot_config {
 
     // Kernel
     kernel_version:         "6.x-preempt-rt"
-    build_system:           "buildroot"
+    build_system:           "nixos"
     rt_cores:               [1, 2, 3]           // cores reserved for RT
     housekeeping_cores:     [0]                  // cores for Linux housekeeping
 
@@ -495,7 +497,7 @@ boot_config {
     logging_ring_buffer:    "128MB"
 
     // Update
-    ab_partitioning:        true
+    ab_partitioning:        false  # replaced by NixOS generations
     rollback_on_boot_fail:  true
 
     // Initialization
@@ -520,10 +522,12 @@ INV-7:  No swap (all memory is physical)
 INV-8:  RT cores are dedicated (isolcpus) - no Linux housekeeping on RT cores
 INV-9:  No dynamic memory allocation in RT paths (all pre-allocated at boot)
 INV-10: Authority Engine and System Orchestrator failure → device HALTS
-INV-11: A/B partitioning ensures rollback on failed updates
+INV-11: NixOS generations ensure rollback on failed updates (replaces A/B partitioning)
 INV-12: Boot attestation is written on-chain as the first transaction
-INV-13: Service initialization follows strict dependency order
-INV-14: Firmware updates are signature-verified (post-quantum)
+INV-13: CIG must be fully loaded (750 nodes, all edges) before pod assembly is enabled
+INV-14: STK invariant definitions must be loaded and verified before Authority Engine accepts requests
+INV-15: Service initialization follows strict dependency order
+INV-16: Firmware updates are signature-verified (post-quantum)
 ```
 
 ---
@@ -536,4 +540,6 @@ INV-14: Firmware updates are signature-verified (post-quantum)
 - **Pod Orchestrator (05):** Pod Orch registry initialized at Step 10 as part of System Orchestrator activation.
 - **Verification & Audit (06):** Chain node started at Step 8. Boot attestation written at Step 11.
 - **Existing Repos:** qudag-crypto (key hierarchy), qudag-vault-core (key management), ANS (device registration, Step 9).
+- **Master Document (00-master.md) - CIG & Lattice:** CIG initialization (750 nodes + 1500+ edges into Neo4j) occurs during the boot service sequence. The full cubelet lattice (10 stages x 5 frameworks x 15 per cell) must be loaded before pod assembly is enabled.
+- **Authority Model (01) - STK Invariants:** All 150 STK invariant definitions across 7 families are loaded and verified during boot. The Authority Engine will not accept requests until invariant verification is complete.
 - **Knowledge Base (12-knowledge-base.md):** KB services (Vector DB, Knowledge Graph DB) are initialized during the boot service sequence. KB state is loaded from persistent storage to restore the hierarchical knowledge base (System KB, Domain KBs).

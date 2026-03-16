@@ -1,6 +1,6 @@
 # MYOS Pod Orchestrator - Behavior, Lifecycle & Runtime Management
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -9,6 +9,8 @@
 The Pod Orchestrator is the **intelligent coordinator and synthesizer** inside every running pod. It is always an **LLM-based agent** - never a simple rule engine or scheduler. It reasons about pipeline structure, monitors cubelet health, handles failures adaptively, and synthesizes results from parallel branches.
 
 Pod Orchestrators are **NOT cubelets** from the 750 cubelet pool. They are a distinct entity class, created by the System Orchestrator and registered for reuse.
+
+Pod Orchestrators use **STSol templates** and **CIG edges** to guide DAG construction. Rather than reasoning about pipeline structure from scratch, the Pod Orch consults the STSol template for the task type to identify required cubelet positions, then uses CIG DEPENDS_ON and PROVES edges to build the pipeline within structural constraints. The LLM reasoning focuses on optimization within the graph structure, not inventing the structure from scratch.
 
 ```
 KEY PROPERTIES:
@@ -572,9 +574,11 @@ The Session Pod's Pod Orch manages idle behavior:
 
 ```
 pod_orchestrator_config {
-    // LLM model assignment
-    system_orch_model:      "claude-opus-tier"       // powerful model
-    pod_orch_model:         "claude-sonnet-tier"     // lighter model
+    // LLM model assignment (see 10-node-topology for full cost strategy)
+    system_orch_model:      "claude-opus-tier"       // paid, powerful model
+    domain_orch_model:      "claude-sonnet-tier"     // paid, domain reasoning
+    deployment_orch_model:  "llama-8b-ollama"        // open-source, operational
+    pod_orch_model:         "llama-8b-ollama"        // open-source, operational
 
     // AV
     pod_orch_av_floor:      400                      // minimum AV on all dimensions
@@ -631,15 +635,20 @@ INV-14: Coherence self-check runs at configured intervals during pipeline execut
 INV-15: Coherence below reload threshold triggers mandatory context reload from KB checkpoint
 INV-16: Coherence below escalation threshold triggers mandatory escalation to System Orch
 INV-17: Every decision that alters the pipeline is logged with its full reasoning chain (decision context)
+INV-18: DAG construction must respect CIG structural constraints (DEPENDS_ON, GOVERNS, PROVES edges)
+INV-19: DAG construction must follow framework ordering (STA → STI → STD → STF → STK)
+INV-20: STSol template is consulted before free-form DAG construction (graph-first, LLM-second)
+INV-21: Pod Orch model assignment follows the LLM cost strategy: open-source for Pod/Deployment, paid for System/Domain
 ```
 
 ---
 
 ## 9. Interaction with Other Documents
 
-- **Authority Model (01-authority-model.md):** Pod Orchs are subject to MBAC with floor = 400. AV is multi-dimensional using the flexible dimension registry. LLM model assignment is fixed per orchestrator type in system config.
-- **Conflict Resolution (02-conflict-resolution.md):** Pod Orch facilitates Level 2 (pod vote) but does not vote itself. It escalates unresolvable conflicts to System Orch (Level 3). Pod Orch is the facilitator, not a participant.
-- **Pod Assembly (03-pod-assembly.md):** Pod Orch is assigned during pod assembly. Created from template or cloned from registry. Selection follows the template + registry hybrid model.
-- **Cubelet I/O Contract (04-cubelet-io-contract.md):** Pod Orch builds the DAG, manages the pipeline, handles control messages, and is responsible for pipeline logging (off-chain) and decision logging (on-chain).
-- **Knowledge Base (12-knowledge-base.md):** The Pod Orchestrator manages the Pod KB lifecycle - creating it at pod assembly and destroying it at dissolution. During execution, the Pod Orch evaluates cubelet discoveries for promotion to Domain or System KB. The Pod Orch also queries the KB before generating responses (deterministic KB lookup first, LLM fallback), and uses KB entries for query routing decisions in session pods. The coherence self-check mechanism uses context checkpoints and weighted context entries stored in the Session Memory KB (§3.5-3.6) to reload context when degradation is detected.
-- **Cubelet I/O Contract (04-cubelet-io-contract.md):** Decision context logging (§4.4) creates a parallel reasoning DAG alongside the data DAG. The Pod Orch writes decision context entries to the Pod KB as it makes pipeline decisions, forming a queryable chain of reasoning that survives context window degradation.
+- **Master Document (00-MYOS-master.md):** Defines STSol templates, the Rubik's Lattice, and framework ordering that Pod Orchestrators use for DAG construction. Pod Orchs instantiate STSol templates into running pods.
+- **Authority Model (01-authority-model.md):** Pod Orchs are subject to MBAC dual-gate system (AV + STK invariants) with floor = 400. AV is multi-dimensional using the flexible dimension registry. STK invariants are verified at pipeline completion - every pod DAG must terminate at an STK cubelet.
+- **Conflict Resolution (02-conflict-resolution.md):** Pod Orch facilitates Level 2 (pod vote) but does not vote itself. It routes domain-specific conflicts to the Domain Orchestrator before escalating to System Orch (Level 3). For cross-framework disagreements (STA vs STD), STA policy takes precedence.
+- **Pod Assembly (03-pod-assembly.md):** Pod Orch is assigned during pod assembly. Created from template or cloned from registry. Receives the STSol template and CIG edges for graph-informed DAG construction.
+- **Cubelet I/O Contract (04-cubelet-io-contract.md):** Pod Orch builds the DAG using CIG structural constraints and framework ordering. Manages the pipeline, handles control messages, and is responsible for pipeline logging (off-chain) and decision logging (on-chain). Decision context logging creates a parallel reasoning DAG alongside the data DAG.
+- **Node Topology (10-node-topology-orchestrator-hierarchy.md):** Defines the LLM cost strategy - Pod Orchs use open-source models (Llama 8B / Phi-3), not paid models. This is the authoritative source for model assignment.
+- **Knowledge Base (12-knowledge-base.md):** The Pod Orchestrator manages the Pod KB lifecycle - creating it at pod assembly and destroying it at dissolution. The CIG provides structural backbone; the Pod KB adds runtime knowledge on top. The coherence self-check mechanism uses context checkpoints stored in the KB to reload context when degradation is detected.

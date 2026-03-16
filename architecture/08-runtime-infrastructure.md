@@ -1,12 +1,14 @@
 # MYOS Runtime Infrastructure - Kernel, Services & Resource Management
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
 ## 1. Overview
 
 This document defines how the MYOS runtime operates after boot - the living system that supports cubelets, pods, and orchestrators. It covers the kernel's scheduling and memory model, the service runtime, cubelet isolation, resource management, and the watchdog system.
+
+The three isolation tiers directly map to the three cubelet model types in the 750-cubelet lattice: **Math-bound cubelets** (~350-400, Tier 1 - Wasm+Unikernel) run with double isolation for deterministic, safety-critical computation. **ML/DL cubelets** (~200-250, Tier 1-2) run in Wasm+Unikernel for safety-critical inference or Wasm-native for non-critical models. **LLM cubelets** (~100-150, Tier 3 - containers) require filesystem and GPU access and run in Linux containers. This mapping ensures that the isolation guarantees match the trust and resource profile of each cubelet model type.
 
 ```
 RUNTIME STACK (Core/Compute Nodes):
@@ -720,10 +722,12 @@ INV-9:  Hardware watchdog reboots the device if software watchdog dies
 INV-10: Critical services (Authority Engine, System Orch) auto-restart; if restart fails → safety shutdown
 INV-11: Service dependencies are respected (no service starts before its dependencies)
 INV-12: All cubelets execute within their time budget or are killed
-INV-13: Orchestrator containers have higher resource limits but same security restrictions as cubelet containers
-INV-14: Cubelet Launcher is the single entry point for all cubelet lifecycle - dispatch is by isolation tier, not by runtime
-INV-15: ML cubelets use WASI-NN as the standard inference interface - cubelet code never imports a specific runtime
-INV-16: Safety-critical cubelets MUST use wasm_unikernel tier (double isolation) - wasm_native is only for non-safety-critical
+INV-13: Math-bound and ML/DL cubelets (STK, STF, STI frameworks) run in Tier 1-2 isolation
+INV-14: LLM cubelets run in Tier 3 containers - never in Wasm+Unikernel
+INV-15: Orchestrator containers have higher resource limits but same security restrictions as cubelet containers
+INV-16: Cubelet Launcher is the single entry point for all cubelet lifecycle - dispatch is by isolation tier, not by runtime
+INV-17: ML cubelets use WASI-NN as the standard inference interface - cubelet code never imports a specific runtime
+INV-18: Safety-critical cubelets MUST use wasm_unikernel tier (double isolation) - wasm_native is only for non-safety-critical
 ```
 
 ---
@@ -736,5 +740,8 @@ INV-16: Safety-critical cubelets MUST use wasm_unikernel tier (double isolation)
 - **Cubelet I/O (04):** Data pipeline uses shared memory IPC with typed buffers. Control messages use ring buffer IPC.
 - **Pod Orchestrator (05):** Pod Orch runs in a container with elevated resource limits. Communicates with cubelets via IPC.
 - **Verification & Audit (06):** Off-chain DB is a service managed by the service lifecycle system. Watchdog events are logged on-chain.
+- **Master Document (00-master.md) - Cubelet Lattice:** The 750 cubelets (10 stages x 5 frameworks x 15 per cell) map to isolation tiers by model type: Math-bound (~350-400) to Tier 1, ML/DL (~200-250) to Tier 1-2, LLM (~100-150) to Tier 3. The lattice structure determines which isolation tier is enforced for each cubelet.
+- **CIG (Cubelet Interaction Graph):** The CIG's 9 edge types define inter-cubelet relationships that the runtime must respect when enforcing isolation boundaries. CONTAINS and FEDERATES edges determine which cubelets can share isolation contexts.
+- **STF Fabric Threads:** The 11+ named ledgers influence resource allocation at runtime - fabric threads carrying safety-critical data (e.g., EthosLedger) require Tier 1 isolation for all cubelets in their path.
 - **Existing Repos:** Wasm runtime hosts cubelets compiled from ONNX-Agent and ruv-fann. Container runtime hosts LLM agents.
 - **Knowledge Base (12-knowledge-base.md):** Vector DB and Knowledge Graph DB run as NixOS-managed services on compute nodes. These services support KB queries, semantic search, and knowledge graph traversal for the hierarchical KB (System, Domain, Pod levels).

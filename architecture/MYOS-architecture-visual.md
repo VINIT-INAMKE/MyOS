@@ -22,15 +22,18 @@ MYOS is a **distributed operating system** where AI systems operate under mathem
 
 ### OS Analogy
 
-| Traditional OS          | MYOS Equivalent                       |
-| ----------------------- | ------------------------------------- |
-| Process                 | Cubelet                               |
-| Job / Process Group     | Pod                                   |
-| Permission / Capability | Authority Value (AV)                  |
-| Filesystem              | Knowledge Base (KB)                   |
-| Audit Log               | On-chain / Off-chain Verification     |
-| Kernel                  | NixOS + PREEMPT_RT + Authority Engine |
-| Shell                   | Session Pod (AI interaction)          |
+| Traditional OS          | MYOS Equivalent                                    |
+| ----------------------- | -------------------------------------------------- |
+| Process                 | Cubelet (named position in Rubik's Lattice)        |
+| Job / Process Group     | Pod (STSol assembly - vertical lattice cross-section) |
+| Permission / Capability | Authority Value (AV) + STK invariants (dual gate)  |
+| Filesystem              | Knowledge Base (on CIG backbone)                   |
+| Audit Log               | On-chain / Off-chain via STF fabric threads        |
+| Kernel                  | NixOS + PREEMPT_RT + Authority Engine + ProofPerl  |
+| Shell                   | Session Pod (AI interaction)                       |
+| Type System             | STI framework (logic, ontologies, schemas)         |
+| Network Stack           | STF framework (fabric threads, ledger connectors)  |
+| Access Policy           | STA framework (intent, ethics, charters)           |
 
 ---
 
@@ -70,21 +73,30 @@ MYOS is a **distributed operating system** where AI systems operate under mathem
 │   │                                                                         │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
-│   EXECUTION LAYER (750 cubelets)                                                │
+│   EXECUTION LAYER - RUBIK'S LATTICE (750 cubelets = 10 stages × 5 frameworks × 15) │
 │                                                                                 │
 │   ┌─────────────────────────────────────────────────────────────────────────┐   │
 │   │                                                                         │   │
-│   │   CUBELET LAUNCHER (single dispatch abstraction)                        │   │
+│   │   THE LATTICE (each cell = 15 cubelets):                                │   │
+│   │            STA         STI         STD         STF         STK          │   │
+│   │          (Intent)    (Logic)    (Execute)   (Connect)    (Proof)        │   │
+│   │   St 0-3  Policies    ML/DL      Runtimes   Ledgers    Invariants     │   │
+│   │   St 4-5  Policies    ML/DL      Runtimes   DePIN      Proofs         │   │
+│   │   St 6-7  Policies    ML/DL      Runtimes   Treasury   Proofs         │   │
+│   │   St 8-9  Policies    ML/DL      Runtimes   Eco/Ethics Proofs         │   │
+│   │                                                                         │   │
+│   │   THREE MODEL TYPES → THREE ISOLATION TIERS:                            │   │
 │   │   ┌─────────────────┐ ┌──────────────────┐ ┌──────────────────────┐    │   │
-│   │   │ TIER 1           │ │ TIER 2            │ │ TIER 3               │    │   │
-│   │   │ wasm_unikernel   │ │ wasm_native       │ │ container            │    │   │
+│   │   │ Math-Bound       │ │ ML/DL Models      │ │ LLM Agents           │    │   │
+│   │   │ ~350-400 cubelets│ │ ~200-250 cubelets │ │ ~100-150 cubelets    │    │   │
 │   │   │ ─────────────── │ │ ──────────────── │ │ ─────────────────── │    │   │
-│   │   │ Wasm + Unikraft  │ │ Wasm sandbox only │ │ Linux crun           │    │   │
-│   │   │ Safety-critical  │ │ Non-critical math │ │ LLM agents           │    │   │
-│   │   │ math & ML        │ │ Lightweight ML    │ │ Cross-lang (PyO3)    │    │   │
+│   │   │ TIER 1: Wasm +   │ │ TIER 1-2: Wasm    │ │ TIER 3: Linux crun   │    │   │
+│   │   │ Unikraft         │ │ (± Unikernel)     │ │ Container            │    │   │
+│   │   │ STK, STF cubelets│ │ STI cubelets      │ │ Some STA/STD         │    │   │
 │   │   │ ~12ms boot       │ │ ~1ms boot         │ │ ~500ms boot          │    │   │
 │   │   │ ~20MB memory     │ │ ~5MB memory       │ │ ~100MB+ memory       │    │   │
 │   │   │ Double isolation │ │ Single isolation  │ │ Namespace isolation  │    │   │
+│   │   │ Perfect determ.  │ │ Near-perfect      │ │ Non-deterministic    │    │   │
 │   │   └─────────────────┘ └──────────────────┘ └──────────────────────┘    │   │
 │   │                                                                         │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
@@ -112,18 +124,26 @@ MYOS is a **distributed operating system** where AI systems operate under mathem
 │   ┌─────────────────────┐  ┌──────────────────────────────────────────────┐    │
 │   │  AUTHORITY ENGINE   │  │  VERIFICATION & AUDIT                        │    │
 │   │  Haskell (MBAC)     │  │  Ouroboros chain + off-chain logs            │    │
-│   │  Centralized core   │  │  Cardano mainnet anchoring                   │    │
-│   │  SO_PEERCRED auth   │  │  Public readability                          │    │
-│   │  <5ms response      │  │  Tiered retention (hot/warm/cold)            │    │
+│   │  + ProofPerl (STK   │  │  Routed via STF fabric threads              │    │
+│   │    invariant eval)  │  │  Cardano mainnet anchoring                   │    │
+│   │  + PerlFrame (value │  │  STK invariant records on-chain             │    │
+│   │    anchor, PCCSCEFVRI)│  │  Public readability                        │    │
+│   │  Centralized core   │  │  Tiered retention (hot/warm/cold)            │    │
+│   │  <5ms response      │  │                                              │    │
 │   └─────────────────────┘  └──────────────────────────────────────────────┘    │
 │                                                                                 │
 │   ┌─────────────────────┐  ┌──────────────────────────────────────────────┐    │
-│   │  KNOWLEDGE BASE     │  │  NETWORKING                                  │    │
-│   │  3-level hierarchy  │  │  LibP2P P2P mesh (qudag-network)             │    │
-│   │  Vector DB + Graph  │  │  Post-quantum crypto (ML-KEM-768, ML-DSA)    │    │
-│   │  Confidence scoring │  │  ANS device discovery                        │    │
-│   │  GDPR erasure       │  │  Federated MCP cross-device tools            │    │
-│   └─────────────────────┘  └──────────────────────────────────────────────┘    │
+│   │  KNOWLEDGE BASE     │  │  CUBELET INTERACTION GRAPH (CIG)             │    │
+│   │  On CIG backbone    │  │  Neo4j: 750 nodes, 9 edge types, 1500+ edges│    │
+│   │  3-level hierarchy  │  │  Structural backbone for pods + KB           │    │
+│   │  Domain KBs = STF   │  │  Pre-seeded at boot from cubelet registry   │    │
+│   │    fabric threads   │  │  Rubik's Moves update the graph             │    │
+│   │  Vector DB + Graph  │  │                                              │    │
+│   │  Confidence scoring │  │  NETWORKING                                  │    │
+│   │  GDPR erasure       │  │  LibP2P P2P mesh (qudag-network)            │    │
+│   └─────────────────────┘  │  Post-quantum crypto, STF multiplexed       │    │
+│                              │  Federated MCP cross-device tools           │    │
+│                              └──────────────────────────────────────────────┘    │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -205,15 +225,17 @@ TASK ARRIVAL → POD ASSEMBLY → EXECUTION → DISSOLUTION
     └──────┬───────────────────────────┘
            │
     ┌──────▼──────────────────────────────────────────────┐
-    │  CUBELET SELECTION                                   │
+    │  CUBELET SELECTION (graph-informed)                   │
     │                                                      │
-    │  score = 0.50 × AV[relevant_dim]                     │
-    │        + 0.25 × compatibility_bonus                  │
-    │        + 0.15 × success_rate                         │
-    │        - 0.10 × recent_load                          │
+    │  Phase 1: STSol template → CIG edge resolution       │
+    │    Task → Stage mapping → STSol template lookup       │
+    │    DEPENDS_ON, PROVES, GOVERNS edges → required slots │
     │                                                      │
-    │  Fill order: required → preferred → optional         │
-    │              scarce capabilities first                │
+    │  Phase 2: AV + compatibility scoring                 │
+    │    score = 0.50 × AV[relevant_dim]                   │
+    │          + 0.25 × compatibility_bonus                │
+    │          + 0.15 × success_rate                       │
+    │          - 0.10 × recent_load                        │
     │                                                      │
     │  Assembly mode:                                      │
     │    HIGH priority → PARALLEL (lock immediately)       │
@@ -227,13 +249,19 @@ TASK ARRIVAL → POD ASSEMBLY → EXECUTION → DISSOLUTION
     │  │  POD                                          │   │
     │  │  ┌────────────────────────────────────────┐   │   │
     │  │  │  Pod Orchestrator (LLM, builds DAG)    │   │   │
+    │  │  │  Uses STSol template + CIG edges       │   │   │
     │  │  └────────────────────────────────────────┘   │   │
-    │  │       │                                       │   │
+    │  │       │  Framework ordering: STA→STI→STD→STF→STK  │
     │  │  ┌────▼─────┐  ┌──────────┐  ┌───────────┐  │   │
-    │  │  │Cubelet A │→ │Cubelet B │→ │Cubelet C  │  │   │
-    │  │  │(sensor)  │  │(model)   │  │(actuator) │  │   │
-    │  │  └──────────┘  └──────────┘  └───────────┘  │   │
-    │  │       Data Pipeline (typed DAG)              │   │
+    │  │  │STA (gov) │→ │STI (logic)│→ │STD (exec) │  │   │
+    │  │  └──────────┘  └──────────┘  └─────┬─────┘  │   │
+    │  │                               ┌────▼─────┐  │   │
+    │  │                               │STF (log) │  │   │
+    │  │                               └────┬─────┘  │   │
+    │  │                               ┌────▼─────┐  │   │
+    │  │                               │STK (prove)│  │   │
+    │  │                               └──────────┘  │   │
+    │  │       Data Pipeline (typed DAG, CIG-constrained) │
     │  └──────────────────────────────────────────────┘   │
     └──────┬──────────────────────────────────────────────┘
            │
@@ -349,10 +377,11 @@ HIERARCHICAL KB WITH CONFIDENCE SCORING:
     ├──────────────────────────────────────────────────────────────┤
     │                                                              │
     │  ┌────────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐     │
-    │  │ Healthcare │ │ DeFi     │ │ Carbon   │ │ AI/ML    │     │
-    │  │ Domain KB  │ │ Domain KB│ │ Domain KB│ │ Domain KB│     │
+    │  │ Knowledge  │ │ Finance  │ │ Karbon   │ │ Research │     │
+    │  │ Ledger KB  │ │ Ledger KB│ │ Ledger KB│ │ LedgerKB │     │
     │  │ Write:>=500│ │          │ │          │ │          │     │
     │  └────────────┘ └──────────┘ └──────────┘ └──────────┘     │
+    │  Mapped to STF fabric threads - co-located with ledger infra │
     │  Isolated from each other - cross-domain via System KB       │
     │  Location: Domain servers                                    │
     ├──────────────────────────────────────────────────────────────┤
@@ -402,6 +431,7 @@ CONFIDENCE SCORING (same math as Authority Values):
                     ┌─────────────────────────────────────┐
                     │     CENTRALIZED CORE (x86/ARM)      │
                     │     System Orch + Authority Engine   │
+                    │     CIG (Neo4j) + System KB          │
                     │     NixOS full                       │
                     └────────────────┬────────────────────┘
                                      │
@@ -432,9 +462,10 @@ CONFIDENCE SCORING (same math as Authority Values):
    └────────────────────────────────────────────────────────────────────┘
 
    ┌────────────────────────────────────────────────────────────────────┐
-   │               EDGE RISC-V SENSORS                                   │
+   │               EDGE RISC-V SENSORS (Stage 0, 4 cubelets)            │
    │               NixOS minimal                                        │
-   │               Sensor agent + Light math (Wasm) + Light validator   │
+   │               Math-bound + quantized ML cubelets (Tier 1-2 only)  │
+   │               No LLMs on edge - by design                         │
    │               Authority via RPC to centralized engine              │
    └────────────────────────────────────────────────────────────────────┘
 ```
@@ -466,14 +497,15 @@ POWER ON → OPERATIONAL (each stage verifies the next):
                                │
     ┌──────────────────────────▼───────────────────────────────────┐
     │  STAGE 3: Rust Userspace Init                               │
-    │  1. HAL init          5. Authority Engine (Haskell)          │
-    │  2. Config verify     6. Cubelet pool registration          │
-    │  3. Wasm runtime      7. Off-chain DB                       │
-    │  4. Container runtime 8. Chain node (Ouroboros)              │
-    │  4b. Agenix secrets   9. Network + ANS                      │
-    │      (decrypt to      10. System Orchestrator               │
-    │       tmpfs only)     11. Boot attestation (on-chain)       │
-    │                       12. SYSTEM READY                       │
+    │  1. HAL init          6. Authority Engine + ProofPerl       │
+    │  2. Config verify     7. CIG load (750 nodes → Neo4j)      │
+    │  3. Wasm runtime      8. STK invariant defs verified        │
+    │  4. Container runtime 9. Off-chain DB + Qdrant              │
+    │  4b. Agenix secrets   10. Chain node (Ouroboros)            │
+    │      (decrypt to      11. Network + ANS                     │
+    │       tmpfs only)     12. System Orchestrator               │
+    │  5. Cubelet registry  13. Boot attestation (on-chain)       │
+    │     load              14. SYSTEM READY                       │
     └─────────────────────────────────────────────────────────────┘
 
 

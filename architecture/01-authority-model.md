@@ -1,12 +1,16 @@
 # MYOS Authority Model - Math-Based Access Control (MBAC)
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
 ## 1. Overview
 
 MYOS replaces traditional Role-Based Access Control (RBAC) with **Math-Based Access Control (MBAC)**. In MBAC, every entity in the system - cubelets, Pod Orchestrators, and the System Orchestrator - carries a continuously computed **Authority Value (AV)**. Authority is not a static role assignment; it is a living, reinforcement-driven score that reflects an entity's proven competence, reliability, and recent activity.
+
+MBAC operates in tandem with the **STK (Kernel) framework** - 150 formal invariants organized into 7 families that define the ethical and operational constraints the system must satisfy at all times. While AV governs _how much_ authority an entity has, STK invariants govern _what constraints_ apply to any given action. Together, MBAC + STK form the complete authority system: AV determines permission level, STK determines permission conditions.
+
+The AV dimension registry aligns with **PCCSCEFVRI** - the 10-value ethical anchor (**P**rivacy, **C**are, **C**onsent, **S**afety, **C**reativity, **E**quity, **F**airness, **V**erifiability, **R**esponsibility, **I**ntegrity) that the STK invariants enforce. Each AV dimension maps to one or more PCCSCEFVRI values, ensuring the reinforcement learning loop has an explicit ethical objective function.
 
 **MYOS is not limited to edge robotics or physical actuators.** It is a general-purpose deterministic AI execution platform. The same authority model governs physical control systems (sensors, actuators, industrial controllers) AND conversational AI interactions (user queries, reasoning chains, knowledge synthesis). A user talking to an AI assistant goes through the same authority pipeline as a robot moving an arm - both are tasks, both assemble pods, both are governed by MBAC.
 
@@ -64,48 +68,66 @@ dimension_registry {
 
 #### Standard Dimensions
 
-The following dimensions are defined as standard. Deployments select which ones they need.
+The following dimensions are defined as standard, organized by category. Deployments select which ones they need. All standard dimensions are mapped to the PCCSCEFVRI ethical values they enforce.
 
 **Physical / Edge Dimensions:**
 
-| Dimension   | Purpose                                             | Use Case                                            |
-| ----------- | --------------------------------------------------- | --------------------------------------------------- |
-| `execution` | Authority over task execution and control decisions | Motor control, process execution, actuator commands |
-| `safety`    | Authority over safety-critical decisions            | Emergency stops, hazard avoidance, safety overrides |
-| `resource`  | Authority over resource allocation                  | Memory, CPU, I/O, sensor access, bandwidth          |
-| `policy`    | Authority over policy and rule interpretation       | Compliance, regulation, operational rules           |
+| Dimension   | Purpose                                             | Use Case                                            | PCCSCEFVRI Mapping |
+| ----------- | --------------------------------------------------- | --------------------------------------------------- | ------------------ |
+| `execution` | Authority over task execution and control decisions | Motor control, process execution, actuator commands | Verifiability |
+| `safety`    | Authority over safety-critical decisions            | Emergency stops, hazard avoidance, safety overrides | Safety |
+| `resource`  | Authority over resource allocation                  | Memory, CPU, I/O, sensor access, bandwidth          | Responsibility |
+| `policy`    | Authority over policy and rule interpretation       | Compliance, regulation, operational rules           | Fairness |
 
 **AI Interaction Dimensions:**
 
-| Dimension       | Purpose                                                          | Use Case                                                                    |
-| --------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `reasoning`     | Authority over complex reasoning chains and multi-step logic     | Deep analysis, multi-hop inference, mathematical proof, strategic planning  |
-| `communication` | Authority over user-facing responses and commitments             | What the AI can say, tone, making promises, providing guarantees            |
-| `knowledge`     | Authority over which knowledge domains can be accessed and cited | Domain expertise boundaries, data access levels, citation authority         |
-| `autonomy`      | Authority over independent action without human confirmation     | Self-directed task execution, unsupervised decisions, autonomous operations |
+| Dimension       | Purpose                                                          | Use Case                                                                    | PCCSCEFVRI Mapping |
+| --------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------ |
+| `reasoning`     | Authority over complex reasoning chains and multi-step logic     | Deep analysis, multi-hop inference, mathematical proof, strategic planning  | Verifiability |
+| `communication` | Authority over user-facing responses and commitments             | What the AI can say, tone, making promises, providing guarantees            | Care, Integrity |
+| `knowledge`     | Authority over which knowledge domains can be accessed and cited | Domain expertise boundaries, data access levels, citation authority         | Responsibility |
+| `autonomy`      | Authority over independent action without human confirmation     | Self-directed task execution, unsupervised decisions, autonomous operations | Consent |
+
+**Ethical / Governance Dimensions (PCCSCEFVRI-aligned):**
+
+| Dimension          | Purpose                                                         | Use Case                                                         | PCCSCEFVRI Mapping |
+| ------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------ |
+| `privacy`          | Authority over personal data handling and disclosure            | Data minimization, consent enforcement, anonymization            | Privacy, Consent |
+| `equity`           | Authority over fairness-sensitive decisions                     | Bias-bounded inference, equitable resource distribution          | Equity, Fairness |
+| `accountability`   | Authority over audit and transparency operations               | Log access, audit trail verification, compliance reporting       | Responsibility, Integrity |
+| `planetary`        | Authority over environmental and sustainability decisions       | MRV verification, carbon accounting, resource stewardship        | (Planetary Integrity - extends PCCSCEFVRI) |
+
+These ethical dimensions are activated when MYOS operates in governance-sensitive contexts (Stages 5-9 of the cubelet lattice) or when regulatory compliance requires explicit tracking of privacy, equity, or environmental impact.
 
 #### Deployment Configuration Examples
 
-**Edge Robotics Deployment:**
+**Edge Robotics Deployment (Stages 0, 4):**
 
 ```
 dimensions: [execution, safety, resource, policy]
 ```
 
-**AI Interaction Platform:**
+**AI Interaction Platform (Stages 0-3):**
 
 ```
 dimensions: [execution, safety, reasoning, communication, knowledge, autonomy]
 ```
 
-**Hybrid (Robotics with AI Interface):**
+**Hybrid (Robotics with AI Interface, Stages 0-4):**
 
 ```
 dimensions: [execution, safety, resource, policy, reasoning, communication, knowledge, autonomy]
 ```
 
+**Full Governance Deployment (Stages 0-9, Kusari-era):**
+
+```
+dimensions: [execution, safety, resource, policy, reasoning, communication, knowledge, autonomy,
+             privacy, equity, accountability, planetary]
+```
+
 **Custom / Domain-Specific:**
-Deployments can define entirely custom dimensions (e.g., `financial_authority`, `medical_authority`, `legal_authority`) as long as they follow the dimension registry schema.
+Deployments can define entirely custom dimensions (e.g., `financial_authority`, `medical_authority`, `legal_authority`) as long as they follow the dimension registry schema. Custom dimensions should be mapped to the PCCSCEFVRI value(s) they enforce.
 
 #### Dimension Independence
 
@@ -150,7 +172,17 @@ This math cubelet has near-max execution and autonomy (it's deterministic and pr
 
 A single scalar conflates unrelated competencies. A cubelet that excels at motor control (execution) should not automatically gain influence over safety decisions. A cubelet that is great at reasoning should not automatically gain authority to make autonomous decisions. Multi-dimensional vectors enforce **domain-specific authority**: an entity earns trust independently in each domain based on its performance in that domain.
 
-### 2.3 Dimension Comparison Rule - "Relevant Dimension Match"
+In the cubelet lattice, framework layers naturally map to different dimension strengths:
+
+- **STK cubelets** (invariant checkers) accumulate high `safety`, `accountability`, and `execution` AV - they prove things correctly or they don't
+- **STI cubelets** (reasoning/logic) accumulate high `reasoning`, `knowledge`, and `equity` AV - they classify, rank, and reason
+- **STD cubelets** (runtimes) accumulate high `execution` and `communication` AV - they execute and deliver
+- **STF cubelets** (fabric/connectors) accumulate high `execution` and `privacy` AV - they handle data in transit
+- **STA cubelets** (policies) accumulate high `policy`, `accountability`, and `autonomy` AV - they define and interpret rules
+
+This natural alignment means the lattice structure reinforces domain-specific authority: cubelets earn trust in the dimensions their framework layer exercises most.
+
+### 2.4 Dimension Comparison Rule - "Relevant Dimension Match"
 
 When a task or decision requires authority evaluation, **only the relevant dimension is compared**.
 
@@ -176,7 +208,7 @@ Cubelet B: safety = 920
 
 **A cubelet is selected for a task based on its strength in the task's relevant dimension, not its overall average or total.**
 
-### 2.4 Multiple Relevant Dimensions
+### 2.5 Multiple Relevant Dimensions
 
 Some tasks may span multiple dimensions. In such cases:
 
@@ -437,39 +469,72 @@ This is a lazy evaluation pattern - decay is applied at read time, not write tim
 
 ### 6.1 Action Authorization
 
-Before any action is executed in the system:
+Before any action is executed in the system, it must pass **two gates**: AV permission and STK invariant satisfaction.
 
 ```
-1. Entity requests to perform action
+1. Entity requests to perform action involving cubelets [C1, C2, ...]
 2. System determines required_authority for the action
    (which dimension, what minimum AV is needed)
-3. System queries Authority Engine:
-   authorize(entity_id, action, context) → allow | deny | escalate
-4. Authority Engine evaluates:
-   if entity.AV[relevant_dimension] ≥ required_authority:
-       → allow
-   elif entity can escalate:
-       → escalate (pass to higher orchestration level)
-   else:
-       → deny (action blocked, violation event generated)
+3. System resolves STK invariants for involved cubelets
+   (via PROVES edges in the CIG)
+4. System queries Authority Engine:
+   authorize(entity_id, action, cubelet_ids, context) → allow | deny | escalate
+5. Authority Engine evaluates (both gates must pass):
+   Gate 1 - AV check:
+     if entity.AV[relevant_dimension] ≥ required_authority → pass
+     else → escalate or deny
+   Gate 2 - STK invariant check:
+     for each relevant STK invariant:
+       evaluate invariant against current state
+     if all pass → pass
+     if any fail → deny (regardless of AV - invariants are absolute)
+6. Both gates pass → allow
+   AV fails, can escalate → escalate
+   STK invariant fails → deny (no escalation possible for invariant violations)
 ```
 
 ### 6.2 Required Authority Mapping
 
-Every action type in the system has a predefined required authority level per dimension.
+Every action type in the system has a predefined required authority level per dimension, plus a set of STK invariants that must be satisfied.
 
 ```
 action_authority_map {
-    read_sensor:              { execution: 100 }
-    write_actuator:           { execution: 500, safety: 600 }
-    modify_pod_composition:   { resource: 700 }
-    emergency_stop:           { safety: 200 }        // low threshold - anyone should be able to stop
-    override_safety_rule:     { safety: 950 }         // extremely high - almost no one can do this
-    cross_pod_communication:  { policy: 300 }
+    read_sensor: {
+        av_required:  { execution: 100 }
+        stk_required: ["device.attested"]                          // Stage 4 invariant
+    }
+    write_actuator: {
+        av_required:  { execution: 500, safety: 600 }
+        stk_required: ["device.attested", "safety.refusal_on_redline"]
+    }
+    modify_pod_composition: {
+        av_required:  { resource: 700 }
+        stk_required: ["audit.complete"]
+    }
+    emergency_stop: {
+        av_required:  { safety: 200 }                              // low threshold - anyone should be able to stop
+        stk_required: []                                           // no invariant gate - always allowed
+    }
+    override_safety_rule: {
+        av_required:  { safety: 950 }                              // extremely high
+        stk_required: ["safety.refusal_on_redline", "ethics.aligned", "logs.signed"]
+    }
+    cross_pod_communication: {
+        av_required:  { policy: 300 }
+        stk_required: ["privacy.min_disclosure"]                   // Stage 2 invariant
+    }
+    process_personal_data: {
+        av_required:  { privacy: 600, execution: 300 }
+        stk_required: ["consent.required", "privacy.min_disclosure", "revocation.window<=24h"]
+    }
+    carbon_credit_verification: {
+        av_required:  { execution: 500, planetary: 400 }
+        stk_required: ["MRV.verified", "planetary_boundary<=1"]    // Stage 8 invariants
+    }
 }
 ```
 
-This map is defined at system configuration time and is immutable at runtime.
+This map is defined at system configuration time and is immutable at runtime. The `stk_required` field references STK cubelet invariant IDs from the cubelet registry.
 
 ---
 
@@ -479,7 +544,68 @@ This map is defined at system configuration time and is immutable at runtime.
 
 The Authority Engine runs **centralized** on the core server (x86/ARM), co-located with the System Orchestrator. Edge nodes and distributed compute nodes call it via RPC over qudag-network. It is built using **haskell.nix** for reproducible builds and deployed as a NixOS systemd service.
 
-### 7.2 Language Choice Rationale
+### 7.2 STK Invariant Enforcement
+
+Beyond AV-based permission checks, the Authority Engine enforces **150 STK kernel invariants** - formal constraints that must hold for any action involving the corresponding cubelets. STK invariants are organized into 7 families:
+
+| Family | Guarantee | Example Invariants |
+| ------ | --------- | ------------------ |
+| **Privacy & Consent** | Minimal disclosure, data sovereignty | `consent.required`, `revocation.window <= 24h` |
+| **Fairness & Equity** | Bounded bias, revenue fairness | `bias <= θ`, `revenue_share.fairness` |
+| **Verifiability & Determinism** | Proofs exist, execution reproducible | `zk_proof.exists`, `hash.reproducible` |
+| **Safety & Security** | Redline refusal, system isolation | `refusal_on_redline`, `system.isolated` |
+| **Accountability & Audit** | Signed logs, audited upgrades | `logs.signed`, `upgrade.audited` |
+| **Planetary Integrity** | MRV verified, boundary compliance | `MRV.verified`, `planetary_boundary <= 1` |
+| **Ethical Reflexivity** | PCCSCEFVRI anchors intact | `ethics.aligned`, `corrigibility.maintained` |
+
+**Authorization with STK invariants:**
+
+```
+1. Entity requests action involving cubelets [C1, C2, C3]
+2. Authority Engine checks AV: entity.AV[relevant_dim] >= required_authority
+3. Authority Engine resolves STK invariants for C1, C2, C3
+   (via PROVES edges in the CIG - which STK cubelets validate these operations)
+4. ProofPerl evaluates each relevant STK invariant:
+   - Invariant expression loaded from cubelet registry
+   - ProofPerl executes formal check against current system state
+   - Result: pass | fail | indeterminate
+   if all pass → allow
+   if any fail → deny (regardless of AV)
+   if indeterminate → escalate to conflict resolution
+5. Invariant check results logged on-chain
+```
+
+**STK invariants cannot be overridden by high AV.** A cubelet with AV 999 in execution is still blocked if the action violates `refusal_on_redline`. AV governs permission level; STK invariants govern permission conditions. Both must pass.
+
+#### ProofPerl - The STK Enforcement Runtime
+
+**ProofPerl** is the execution engine that evaluates STK invariants. It is a formal proof runtime embedded in the Authority Engine that:
+
+- Evaluates constraint expressions (e.g., `bias <= θ`, `revocation.window <= 24h`, `planetary_boundary <= 1`) against current system state
+- Supports parameterized thresholds (θ, ε, Δt, Lmin, Rmin) defined per invariant in the cubelet registry
+- Produces deterministic pass/fail/indeterminate results (same input → same output, always)
+- Runs inside the Authority Engine's Haskell process (compiled as a Haskell DSL)
+- Cannot be modified at runtime - invariant expressions are loaded at boot and are immutable
+
+**PerlFrame** is the value anchor within ProofPerl that maps invariants to PCCSCEFVRI ethical values. Each invariant carries a `perlframe_anchor` field:
+
+```
+invariant {
+    id:               "safety.refusal_on_redline"
+    expression:       "action.risk_score < redline_threshold"
+    parameters:       { redline_threshold: 0.95 }
+    perlframe_anchor: ["Safety"]                    // PCCSCEFVRI mapping
+    family:           "safety_security"
+    stage:            3
+    locked:           true                          // cannot be weakened via Rubik's Move
+}
+```
+
+ProofPerl is NOT a separate service - it is a module within the Authority Engine's Haskell codebase, sharing its purity and type safety guarantees. Invariant evaluation is a pure function: `evaluate(invariant, system_state) → pass | fail | indeterminate`.
+
+STK invariant definitions are loaded from the cubelet registry at boot and are **immutable at runtime**. Updating invariants requires a Rubik's Move (see Lattice Governance in [00-MYOS-master.md](00-MYOS-master.md)) with Level 4 (human-in-the-loop) approval and system reconfiguration.
+
+### 7.3 Language Choice Rationale
 
 The Authority Engine is implemented in **Haskell** for the following reasons:
 
@@ -489,7 +615,7 @@ The Authority Engine is implemented in **Haskell** for the following reasons:
 - **Formal verification proximity**: Haskell code can be reasoned about mathematically, and if needed, ported to proof assistants (Agda, Idris) for formal certification. Via the Curry-Howard correspondence, MBAC invariants expressed as Haskell types are automatically enforced by the compiler - types are propositions, programs are proofs.
 - **Algebraic data types**: The authority model (vectors, events, decisions) maps naturally to Haskell ADTs and pattern matching.
 
-### 7.2 API Contract (IPC / gRPC Interface)
+### 7.4 API Contract (IPC / gRPC Interface)
 
 The Authority Engine runs as an **isolated service** communicating with the Rust runtime via IPC (Unix socket or gRPC).
 
@@ -548,7 +674,7 @@ service AuthorityEngine {
 }
 ```
 
-### 7.3 Isolation Guarantees
+### 7.5 Isolation Guarantees
 
 - The Authority Engine runs in its own **memory-isolated process**.
 - It has **no direct access** to the kernel, hardware, network, or any other system component.
@@ -557,7 +683,7 @@ service AuthorityEngine {
 - If the Authority Engine crashes, the system defaults to **deny all actions** until it recovers.
 - The Authority Engine **cannot modify its own authority rules at runtime**. Rules are loaded at boot from a signed, verified configuration.
 
-### 7.4 Determinism Contract
+### 7.6 Determinism Contract
 
 The Authority Engine must satisfy:
 
@@ -648,11 +774,14 @@ mbac_config {
     decay_rate_per_hour:        0.5
 
     // Dimension Registry (flexible - configured per deployment)
+    // Dimensions are mapped to PCCSCEFVRI ethical values
     dimension_registry {
         dimensions: [
+            // Physical / Edge dimensions
             {
                 name: "execution"
                 description: "Authority over task execution and control decisions"
+                pccscefvri: ["Verifiability"]
                 av_max: 1000
                 av_floor: { system_orch: 700, pod_orch: 400, cubelet: 0 }
                 decay_rate_per_hour: 0.5
@@ -660,34 +789,84 @@ mbac_config {
             {
                 name: "safety"
                 description: "Authority over safety-critical decisions"
+                pccscefvri: ["Safety"]
                 av_max: 1000
                 av_floor: { system_orch: 700, pod_orch: 400, cubelet: 0 }
                 decay_rate_per_hour: 0.3   // slower decay - safety trust is hard-earned
             },
-            // ... additional dimensions per deployment
-            // AI interaction deployments add: reasoning, communication, knowledge, autonomy
-            // Custom deployments can define any dimensions they need
+            // AI interaction dimensions
+            // reasoning, communication, knowledge, autonomy (see section 2.2)
+
+            // Ethical / Governance dimensions (PCCSCEFVRI-aligned)
+            {
+                name: "privacy"
+                description: "Authority over personal data handling and disclosure"
+                pccscefvri: ["Privacy", "Consent"]
+                av_max: 1000
+                av_floor: { system_orch: 700, pod_orch: 400, cubelet: 0 }
+                decay_rate_per_hour: 0.4
+            },
+            {
+                name: "equity"
+                description: "Authority over fairness-sensitive decisions"
+                pccscefvri: ["Equity", "Fairness"]
+                av_max: 1000
+                av_floor: { system_orch: 700, pod_orch: 400, cubelet: 0 }
+                decay_rate_per_hour: 0.4
+            },
+            {
+                name: "accountability"
+                description: "Authority over audit and transparency operations"
+                pccscefvri: ["Responsibility", "Integrity"]
+                av_max: 1000
+                av_floor: { system_orch: 700, pod_orch: 400, cubelet: 0 }
+                decay_rate_per_hour: 0.3
+            },
+            {
+                name: "planetary"
+                description: "Authority over environmental and sustainability decisions"
+                pccscefvri: []   // extends PCCSCEFVRI with planetary integrity
+                av_max: 1000
+                av_floor: { system_orch: 700, pod_orch: 400, cubelet: 0 }
+                decay_rate_per_hour: 0.2   // slow decay - environmental trust is long-term
+            }
         ]
     }
 
-    // Action authority map
+    // STK Invariant Families (loaded from cubelet registry at boot)
+    stk_invariant_families {
+        privacy_consent:          { count: ~20, stages: [0, 2, 5, 7] }
+        fairness_equity:          { count: ~20, stages: [3, 5, 6, 7] }
+        verifiability_determinism:{ count: ~25, stages: [0, 1, 2, 3, 4] }
+        safety_security:          { count: ~25, stages: [0, 3, 4, 8] }
+        accountability_audit:     { count: ~20, stages: [1, 5, 6] }
+        planetary_integrity:      { count: ~20, stages: [4, 8] }
+        ethical_reflexivity:      { count: ~20, stages: [9] }
+        // Total: 150 STK invariants (15 per stage × 10 stages)
+    }
+
+    // Action authority map (see section 6.2 for full spec with stk_required)
     action_authority_map {
         // Physical actions
-        read_sensor:              { execution: 100 }
-        write_actuator:           { execution: 500, safety: 600 }
-        emergency_stop:           { safety: 200 }
-        override_safety_rule:     { safety: 950 }
+        read_sensor:              { av: { execution: 100 }, stk: ["device.attested"] }
+        write_actuator:           { av: { execution: 500, safety: 600 }, stk: ["safety.refusal_on_redline"] }
+        emergency_stop:           { av: { safety: 200 }, stk: [] }
+        override_safety_rule:     { av: { safety: 950 }, stk: ["ethics.aligned", "logs.signed"] }
 
         // AI interaction actions
-        answer_simple_query:      { communication: 200, reasoning: 100 }
-        deep_analysis:            { reasoning: 600, knowledge: 500 }
-        make_commitment:          { communication: 800, autonomy: 700 }
-        autonomous_decision:      { autonomy: 800, safety: 500 }
-        cross_domain_reasoning:   { reasoning: 700, knowledge: 600 }
+        answer_simple_query:      { av: { communication: 200, reasoning: 100 }, stk: [] }
+        deep_analysis:            { av: { reasoning: 600, knowledge: 500 }, stk: ["explainability.required"] }
+        make_commitment:          { av: { communication: 800, autonomy: 700 }, stk: ["logs.signed"] }
+        autonomous_decision:      { av: { autonomy: 800, safety: 500 }, stk: ["safety.refusal_on_redline"] }
+        cross_domain_reasoning:   { av: { reasoning: 700, knowledge: 600 }, stk: ["privacy.min_disclosure"] }
+
+        // Governance actions (Stages 5-9)
+        process_personal_data:    { av: { privacy: 600 }, stk: ["consent.required", "revocation.window<=24h"] }
+        carbon_verification:      { av: { planetary: 400 }, stk: ["MRV.verified", "planetary_boundary<=1"] }
 
         // System actions
-        cross_pod_communication:  { policy: 300 }
-        modify_pod_composition:   { resource: 700 }
+        cross_pod_communication:  { av: { policy: 300 }, stk: ["privacy.min_disclosure"] }
+        modify_pod_composition:   { av: { resource: 700 }, stk: ["audit.complete"] }
     }
 }
 ```
@@ -720,7 +899,12 @@ INV-10: Human decisions do not alter any entity's AV
 
 INV-11: Dimension registry is immutable at runtime (no adding/removing dimensions without reboot)
 INV-12: All dimensions in the registry follow the same floor hierarchy invariant independently
-
+INV-13: ∀ action: if any STK invariant in stk_required fails → deny (regardless of AV)
+INV-14: STK invariant definitions are immutable at runtime (loaded from cubelet registry at boot)
+INV-15: STK invariant updates require Level 4 (human-in-the-loop) approval + system reboot
+INV-16: ∀ cubelet model update: AV resets to floor (new model must re-earn trust)
+INV-17: Cubelet lattice position (Framework-Stage-Index) is permanent and immutable
+INV-18: ∀ AV dimension: maps to at least one PCCSCEFVRI value (ethical traceability)
 ```
 
 These invariants should be verified via property-based testing (QuickCheck) and, for safety-critical deployments, via formal proof.
@@ -855,7 +1039,10 @@ The same MBAC rules apply: the cubelet must have sufficient AV in the relevant d
 
 ## 12. Interaction with Other Documents
 
-- **Conflict Resolution (02-conflict-resolution.md):** AV comparison is the basis for Level 1 conflict resolution. AV-weighted voting drives Level 2.
-- **Pod Assembly (03-pod-assembly.md):** Cubelet selection uses AV from the flexible dimension registry.
-- **Knowledge Base (12-knowledge-base.md):** The `knowledge` dimension AV governs write access to the Knowledge Base. Agents must have sufficient knowledge AV to create or update KB entries. KB confidence scores use the same 0–1000 scale and diminishing-returns math as Authority Values.
-```
+- **Master Document (00-MYOS-master.md):** Defines the Rubik's Lattice (10×5×15 = 750 cubelets), three model types, and the autopoietic loop that gives MBAC its ethical objective function.
+- **Conflict Resolution (02-conflict-resolution.md):** AV comparison is the basis for Level 1 conflict resolution. AV-weighted voting drives Level 2. At Level 3, the System Orchestrator consults STA policies and STK invariants via the CIG's GOVERNS and PROVES edges.
+- **Pod Assembly (03-pod-assembly.md):** Cubelet selection uses AV from the flexible dimension registry. The CIG's DEPENDS_ON and PROVES edges constrain which cubelets can be assembled together. STSol templates define which cubelet positions are required.
+- **Cubelet I/O Contract (04-cubelet-io-contract.md):** The typed data pipeline follows the framework order (STA → STI → STD → STF → STK). Each pipeline edge carries type information validated by the schema registry.
+- **Verification & Audit (06-verification-audit.md):** All authority decisions (AV checks + STK invariant evaluations) are logged on-chain. STK invariant satisfaction records include which PROVES edges were verified.
+- **Boot Trust Chain (07-boot-trust-chain.md):** The Authority Engine loads the dimension registry, STK invariant definitions, and action authority map from signed configuration at boot. The cubelet registry (750 entries with invariant bindings) is loaded from the CIG.
+- **Knowledge Base (12-knowledge-base.md):** The `knowledge` dimension AV governs write access to the Knowledge Base. Agents must have sufficient knowledge AV to create or update KB entries. KB confidence scores use the same 0–1000 scale and diminishing-returns math as Authority Values. The KB's structural backbone is the CIG (same Neo4j instance).

@@ -1,6 +1,6 @@
 # MYOS Pod Assembly Protocol - Task Decomposition, Cubelet Selection & Pod Formation
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -8,13 +8,16 @@
 
 Pod assembly is the process by which the System Orchestrator transforms an incoming task into a functioning team of cubelets, governed by a Pod Orchestrator, ready to execute. This document defines every step of that process - from task arrival to pod activation.
 
-The protocol is designed around five principles:
+Pod assembly is **graph-informed**: the Cubelet Interaction Graph (CIG) provides the structural backbone for cubelet selection. Rather than blind scoring across the 750-cubelet pool, the system uses **STSol templates** (pre-defined vertical cross-sections of the Rubik's Lattice) to identify which cubelet positions are required, then selects the best available cubelets to fill those positions. The CIG's DEPENDS_ON, PROVES, and GOVERNS edges constrain which cubelets can work together.
+
+The protocol is designed around six principles:
 
 1. **No duplicate tasks** - every active task is unique in the system
-2. **Best available team** - cubelets are selected by Authority Value (AV) with compatibility scoring
-3. **Fair rotation** - high-performing cubelets don't monopolize all work
-4. **Graceful degradation** - if the perfect cubelet isn't available, the system adapts
-5. **Priority-aware assembly** - urgent tasks assemble fast, non-urgent tasks wait for ideal teams
+2. **Graph-informed teams** - the CIG defines which cubelets can work together; selection follows structural relationships
+3. **Best available within structure** - among structurally valid candidates, cubelets are selected by AV with compatibility scoring
+4. **Fair rotation** - high-performing cubelets don't monopolize all work
+5. **Graceful degradation** - if the perfect cubelet isn't available, the system adapts
+6. **Priority-aware assembly** - urgent tasks assemble fast, non-urgent tasks wait for ideal teams
 
 ---
 
@@ -22,15 +25,27 @@ The protocol is designed around five principles:
 
 ### 2.1 What is a Cubelet?
 
-A cubelet is the atomic execution unit in MYOS. There are 750 cubelets in the system, each with a specific function. A cubelet has defined inputs, defined outputs, and a single responsibility.
+A cubelet is the atomic execution unit in MYOS. There are **750 cubelets** in the system, organized as a **Rubik's Lattice**: 10 domain stages × 5 framework layers × 15 cubelets per cell. Each cubelet has a **unique identity** defined by its lattice position (e.g., `STI-3-B` = Stage 3, Interpretation framework, index B = "Explainability Logic Model").
+
+A cubelet has defined inputs, defined outputs, and a single responsibility. Its **lattice position is permanent**; its model is a versioned artifact deployed to that position.
 
 ### 2.2 Cubelet Types
 
-| Type                  | Description                                                                      | Determinism                                                | State                                         | Authority Profile                                                     |
-| --------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------- |
-| **Math Function**     | Pure mathematical computation (FFT, matrix multiply, signal processing)          | Fully deterministic                                        | Stateless                                     | Typically high execution AV, earned through consistent correct output |
-| **ML/DL Model**       | Machine learning or deep learning inference (vision, classification, prediction) | Deterministic if controlled (fixed-point, single-threaded) | Stateless (model weights are read-only)       | AV earned through inference accuracy and reliability                  |
-| **LLM-Infused Agent** | Generative AI agent with reasoning capabilities                                  | Non-deterministic (generative)                             | Stateful (conversation history, task context) | Most volatile AV - highest reward potential and highest penalty risk  |
+| Type                  | Description                                                                      | Determinism                                                | State                                         | Authority Profile                                                     | Isolation Tier | Approximate Count |
+| --------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------- | -------------- | ----------------- |
+| **Math-Bound**        | Rule engines, ZK proofs, scoring functions, formal verification, crypto          | Fully deterministic                                        | Stateless                                     | Typically high execution AV, earned through consistent correct output | Tier 1 (Wasm + Unikernel) | ~350-400 |
+| **ML/DL Model**       | Classification, ranking, anomaly detection, NLI, semantic matching, MoE gating   | Near-perfect (fixed weights, fixed input → fixed output)   | Stateless (model weights are read-only)       | AV earned through inference accuracy and reliability                  | Tier 1-2 (Wasm) | ~200-250 |
+| **LLM Agent**         | Novel reasoning, intent interpretation, synthesis, user interaction               | Non-deterministic (generative)                             | Stateful (conversation history, task context) | Most volatile AV - highest reward potential and highest penalty risk  | Tier 3 (container) | ~100-150 |
+
+**Framework-type alignment** (cubelets naturally cluster by model type within frameworks):
+
+| Framework | Primary Model Type | Rationale |
+| --------- | ------------------ | --------- |
+| **STK** (Kernel) | Math-bound (all 150) | Invariants are formal constraints - proofs, not inference |
+| **STF** (Fabric) | Math-bound (most of 150) | Protocol logic, crypto bridges, routing algorithms |
+| **STI** (Interpretation) | ML/DL (most of 150) | Classification, ranking, reasoning - trained model territory |
+| **STA** (Abstraction) | Mix (math-bound + LLM) | Formalized policy rules + novel policy reasoning |
+| **STD** (Deliverance) | Mix (all three) | Pure services + ML inference + LLM runtimes |
 
 ### 2.3 Cubelet Exclusivity
 
@@ -50,9 +65,33 @@ Every cubelet registers a manifest at system boot:
 ```
 cubelet_manifest {
     cubelet_id:         UUID
-    cubelet_type:       math | ml_dl | llm_agent
+    cubelet_type:       math_bound | ml_dl | llm_agent
     name:               String
     version:            String
+
+    // Lattice identity (permanent - defines the cubelet's role in the architecture)
+    lattice_id:         String          // e.g., "STI-3-B"
+    framework:          STA | STI | STD | STF | STK
+    stage:              int             // 0-9
+    index:              char            // A-O
+
+    // Model identity (versioned - changes on retraining/update)
+    model_hash:         BLAKE3          // hash of deployed model artifact
+    model_version:      String          // semver
+
+    // CIG relationships (loaded from graph at boot)
+    cig_edges: {
+        depends_on:     [CubeletId]     // cubelets this one needs
+        proves:         [CubeletId]     // STK invariants this one satisfies
+        governed_by:    [CubeletId]     // STA cubelets that constrain this one
+        informs:        [CubeletId]     // cubelets this one feeds data to
+    }
+
+    // STK invariant bindings
+    stk_invariants:     [InvariantId]   // e.g., ["safety.refusal_on_redline", "fairness<=θ"]
+
+    // STF fabric thread bindings
+    stf_threads:        [FabricId]      // e.g., ["EthosLedger", "ResearchLedger"]
 
     // Capability declaration
     capabilities: [{
@@ -249,17 +288,79 @@ This prevents race conditions where two parallel assembly processes try to creat
 
 ### 4.1 Overview
 
-Once a task is validated and locked, the System Orchestrator must select cubelets to fill the pod. Selection is based on:
+Once a task is validated and locked, the System Orchestrator must select cubelets to fill the pod. Selection follows a **two-phase process**:
 
-1. **Capability match** - cubelet must have the required capability
-2. **Authority Value** - higher AV on the relevant dimension is preferred
-3. **Compatibility score** - cubelets that have worked well together before get a bonus
-4. **Availability** - cubelet must be available (not locked, not in cooldown)
-5. **Rotation** - cubelets in cooldown are skipped
+**Phase 1 - STSol template resolution (graph-informed):**
+1. **Task → Stage mapping** - determine which lattice stage(s) the task belongs to
+2. **STSol template lookup** - find the pre-defined pod template for this task type
+3. **CIG edge resolution** - follow DEPENDS_ON, PROVES, GOVERNS edges to identify all required cubelet positions
 
-### 4.2 Capability Slot Model
+**Phase 2 - Candidate scoring (AV + compatibility):**
+4. **Capability match** - cubelet must have the required capability at the specified lattice position
+5. **Authority Value** - higher AV on the relevant dimension is preferred
+6. **Compatibility score** - cubelets that have worked well together before get a bonus
+7. **Availability** - cubelet must be available (not locked, not in cooldown)
+8. **Rotation** - cubelets in cooldown are skipped
 
-Each task defines a set of **capability slots** that must be filled.
+### 4.2 STSol Template Model
+
+Each task type maps to an **STSol template** - a vertical cross-section of the lattice defining which cubelet positions are required.
+
+```
+stsol_template {
+    template_id:        String          // e.g., "Env-MRV-Pod"
+    primary_stage:      int             // e.g., 8 (Environment)
+    description:        String
+
+    // Required cubelet positions (from CIG)
+    required_positions: [
+        {
+            lattice_id:         "STA-8-A"   // Planetary Stewardship Charter
+            framework:          STA
+            role:               "governing_policy"
+            priority:           required
+        },
+        {
+            lattice_id:         "STI-8-A"   // Climate Data Logic
+            framework:          STI
+            role:               "reasoning_engine"
+            priority:           required
+        },
+        {
+            lattice_id:         "STD-8-A"   // MRV Runtime
+            framework:          STD
+            role:               "execution"
+            priority:           required
+        },
+        {
+            lattice_id:         "STF-8-A"   // KarbonLedger connector
+            framework:          STF
+            role:               "fabric_connector"
+            priority:           required
+        },
+        {
+            lattice_id:         "STK-8-A"   // MRV Verification Invariant
+            framework:          STK
+            role:               "proof_checker"
+            priority:           required
+        }
+    ]
+
+    // Cross-stage dependencies (from CIG diagonal edges)
+    diagonal_dependencies: [
+        {
+            lattice_id:         "STD-4-A"   // Sensor Attestation Runtime
+            role:               "data_source"
+            priority:           preferred    // can degrade without it
+        }
+    ]
+
+    // STK invariants that must be satisfied
+    stk_required:       ["MRV.verified", "planetary_boundary<=1", "device.attested"]
+}
+```
+
+**Fallback for unrecognized tasks:** If no STSol template matches, the System Orchestrator falls back to capability-based slot filling (legacy mode). This uses the traditional capability slot model:
 
 ```
 task_capability_requirements {
@@ -637,15 +738,24 @@ pod_manifest {
     // Team composition
     cubelets: [{
         cubelet_id:     UUID
+        lattice_id:     String               // e.g., "STI-3-B"
         slot_id:        String
         capability:     String
+        model_hash:     BLAKE3               // deployed model version
         av_at_selection: AuthorityVector     // snapshot at selection time
         is_degraded:    bool                  // substitution flag
     }]
 
+    // STSol template used (if graph-informed assembly)
+    stsol_template:     String | null        // e.g., "Env-MRV-Pod" or null for legacy
+
+    // STK invariants applicable to this pod
+    stk_invariants:     [InvariantId]        // union of all cubelets' stk_invariants
+
     // Pod Orchestrator assignment
     pod_orchestrator: {
-        cubelet_id:     UUID                  // Pod Orch is a cubelet too
+        orch_id:        UUID                  // Pod Orch is NOT a cubelet (distinct entity)
+        template_origin: String               // e.g., "data-pipeline-orch"
         av_at_assignment: AuthorityVector
     }
 
@@ -1148,13 +1258,21 @@ INV-19: All sub-pod results pass through the Session Pod's Safety Monitor before
 INV-20: Sub-pods receive a structured context package (not just a task description) at spawn
 INV-21: Sub-pods treat injected hard_constraints as inviolable - violations trigger report_to_parent
 INV-22: Sub-pods that encounter contradictions with injected context report back rather than resolving locally
+INV-23: STSol template assembly uses CIG DEPENDS_ON edges to resolve all required positions
+INV-24: Every pod must include at least one STK cubelet for proof verification (no unproven pods)
+INV-25: Cubelet model_hash at selection time must match model_hash at execution time (no mid-pod model swaps)
+INV-26: Cubelet lattice position (Framework-Stage-Index) is permanent - only model version changes
+INV-27: AV resets to floor when a cubelet's model_hash changes (re-earn trust for updated models)
 ```
 
 ---
 
 ## 13. Interaction with Other Documents
 
-- **Authority Model (01-authority-model.md):** Cubelet selection uses AV from the flexible dimension registry. AV updates (rewards/penalties) happen at pod dissolution. AI interaction dimensions (reasoning, communication, knowledge, autonomy) are used for session pods and sub-pods.
-- **Conflict Resolution (02-conflict-resolution.md):** Conflicts between cubelets within a pod are resolved using the escalation chain. Cross-pod conflicts route through the System Orchestrator (Level 3).
-- **Verification & Audit:** Every assembly, substitution, dissolution, and task dedup event is logged immutably.
-- **Knowledge Base (12-knowledge-base.md):** A Pod KB (ephemeral, scoped to the pod) is created at pod assembly and destroyed at pod dissolution. Session Pods maintain a Session Memory KB that persists for the session lifetime, enabling context-aware KB lookups across queries. Discoveries made within a pod can be promoted to Domain or System KB through the Pod Orchestrator.
+- **Master Document (00-MYOS-master.md):** Defines the Rubik's Lattice (10×5×15 = 750), five frameworks, ten stages, three model types, and STSol pod concept. Pod assembly is the runtime instantiation of STSol templates.
+- **Authority Model (01-authority-model.md):** Cubelet selection uses AV from the flexible dimension registry. AV updates (rewards/penalties) happen at pod dissolution. STK invariants are enforced at assembly time - a pod cannot activate if its cubelets' required invariants cannot be satisfied. AV resets when cubelet model_hash changes.
+- **Conflict Resolution (02-conflict-resolution.md):** Conflicts between cubelets within a pod are resolved using the escalation chain. Cross-pod conflicts route through the Domain Orchestrator, then System Orchestrator (Level 3). The CIG GOVERNS edges inform Level 3 arbitration.
+- **Cubelet I/O Contract (04-cubelet-io-contract.md):** The typed data pipeline within a pod follows framework ordering (STA → STI → STD → STF → STK). CIG DEPENDS_ON edges inform DAG construction.
+- **Pod Orchestrator (05-pod-orchestrator.md):** Pod Orchestrators are NOT cubelets. They use STSol templates to guide DAG construction and CIG edges to validate pipeline structure.
+- **Verification & Audit (06-verification-audit.md):** Every assembly, substitution, dissolution, and task dedup event is logged immutably. STSol template usage and STK invariant satisfaction are recorded on-chain.
+- **Knowledge Base (12-knowledge-base.md):** A Pod KB (ephemeral, scoped to the pod) is created at pod assembly and destroyed at pod dissolution. The CIG provides the structural backbone - the Pod KB adds runtime knowledge on top of structural relationships. Session Pods maintain a Session Memory KB that persists for the session lifetime. Discoveries made within a pod can be promoted to Domain or System KB through the Pod Orchestrator.

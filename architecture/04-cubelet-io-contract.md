@@ -1,6 +1,6 @@
 # MYOS Cubelet I/O Contract - Data Pipeline & Control Messages
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -12,6 +12,8 @@ Cubelets communicate through **two distinct channels**:
 2. **Control Messages** - flexible messages for coordination, status reporting, and queries between cubelets and their Pod Orchestrator
 
 These channels are architecturally separate. Data flows through the pipeline deterministically. Control messages flow through a side channel for coordination and management.
+
+Within a pod, the data pipeline follows the **framework ordering** of the Rubik's Lattice: **STA → STI → STD → STF → STK**. STA cubelets define intent and policy constraints that govern the pipeline. STI cubelets reason about the data. STD cubelets execute the computation. STF cubelets record results to fabric threads (ledgers). STK cubelets verify that outputs satisfy invariants. This ordering is enforced structurally by the CIG's GOVERNS, ENACTS, and PROVES edges.
 
 ```
 DATA PIPELINE (typed DAG):
@@ -115,25 +117,32 @@ Each port is independently typed and independently wired in the DAG.
 
 ### 2.4 DAG Construction
 
-The **Pod Orchestrator** (an LLM) builds the DAG dynamically for each task.
+The **Pod Orchestrator** (an LLM) builds the DAG dynamically for each task, guided by the **CIG** and the **STSol template**.
 
 ```
 DAG construction process:
-  1. Pod Orch receives: task descriptor + assigned cubelets list
-  2. Pod Orch examines each cubelet's input/output declarations
-  3. Pod Orch reasons about the optimal pipeline structure for the task
-  4. Pod Orch constructs the DAG (which cubelet connects to which)
-  5. System validates type compatibility on every edge
-  6. If all edges are type-compatible → DAG is finalized
-  7. If any edge has a type mismatch → assembly error → report to System Orch
+  1. Pod Orch receives: task descriptor + assigned cubelets list + STSol template + CIG edges
+  2. Pod Orch consults CIG edges for structural constraints:
+     - DEPENDS_ON edges → define required data flow dependencies
+     - GOVERNS edges → STA cubelets constrain downstream cubelets
+     - PROVES edges → STK cubelets verify downstream outputs
+     - ENACTS edges → STD cubelets implement STA/STI specifications
+  3. Pod Orch applies framework ordering: STA → STI → STD → STF → STK
+  4. Pod Orch reasons about the optimal pipeline structure within these constraints
+  5. Pod Orch constructs the DAG (which cubelet connects to which)
+  6. System validates type compatibility on every edge
+  7. System validates CIG structural constraints (no GOVERNS violations)
+  8. If all edges are type-compatible AND CIG-compliant → DAG is finalized
+  9. If any edge has a type mismatch or CIG violation → assembly error → report to System Orch
 ```
 
 Since the Pod Orchestrator is an LLM, DAG construction involves reasoning about:
 
-- The best ordering of cubelets for the task
+- The best ordering of cubelets for the task (within the framework ordering constraint)
 - Whether fan-out (parallel branches) is beneficial
 - Whether any cubelets can be skipped for this specific task
 - How to handle multiple output ports (which downstream cubelets need which outputs)
+- Cross-stage dependencies (diagonal CIG edges that bring in cubelets from other stages)
 
 ### 2.5 DAG Mutability - Fixed with Optional Bypass
 
@@ -506,6 +515,10 @@ INV-10: Status reports and error messages are never authority-gated (cubelets ca
 INV-11: Fan-in nodes wait for all required inputs (or timeout)
 INV-12: Schema registry is immutable at runtime
 INV-13: Cross-language cubelets (Python ML code) use PyO3 FFI with Rust ownership enforcement at the boundary
+INV-14: DAG construction must respect CIG GOVERNS edges (STA cubelets constrain downstream)
+INV-15: DAG construction must respect framework ordering (STA → STI → STD → STF → STK)
+INV-16: Every pod DAG must terminate at an STK cubelet (proof verification is mandatory)
+INV-17: STF cubelets in the DAG record results to their bound fabric threads (ledger logging)
 
 ```
 
@@ -563,10 +576,13 @@ Cubelet authors can use a `#[derive(Cubelet)]` proc macro to auto-generate boile
 ```rust
 #[derive(Cubelet)]
 #[cubelet(
+    lattice_id = "STI-3-C",              // permanent lattice position
     name = "image_classifier",
     input(port = "image_in", type_id = "image.rgb.224x224"),
     output(port = "label_out", type_id = "classification.label"),
-    output(port = "confidence_out", type_id = "classification.confidence")
+    output(port = "confidence_out", type_id = "classification.confidence"),
+    stk_invariants = ["fairness<=θ", "explainability.required"],
+    stf_threads = ["ResearchLedger"],
 )]
 struct ImageClassifier {
     model: OnnxModel,
@@ -587,8 +603,10 @@ This reduces cubelet authoring from ~200 lines of boilerplate to a struct defini
 
 ## 8. Interaction with Other Documents
 
-- **Authority Model (01-authority-model.md):** Authority-gated control messages use the MBAC system. AV from the flexible dimension registry determines which control actions are allowed.
-- **Conflict Resolution (02-conflict-resolution.md):** Conflicts detected during pipeline execution (disagreement between cubelets) are resolved through the escalation chain.
-- **Pod Assembly (03-pod-assembly.md):** DAG construction happens after pod assembly. Cubelet I/O declarations (from cubelet manifests) are used for capability matching during assembly AND for type checking during DAG construction.
-- **Pod Orchestrator (05-pod-orchestrator.md):** Pod Orch builds the DAG, manages control messages, handles pipeline failures, and synthesizes results.
-- **Knowledge Base (12-knowledge-base.md):** Cubelet outputs flowing through the data pipeline can be logged as KB entries when they meet confidence thresholds. Pipeline edge data (input/output hashes, intermediate results) can be referenced as evidence for KB entries, linking verified knowledge back to the deterministic pipeline that produced it.
+- **Master Document (00-MYOS-master.md):** Defines the Rubik's Lattice structure and framework ordering (STA → STI → STD → STF → STK) that governs data pipeline construction.
+- **Authority Model (01-authority-model.md):** Authority-gated control messages use the MBAC dual-gate system (AV check + STK invariant check). STK cubelets at the end of every pipeline verify that outputs satisfy formal constraints.
+- **Conflict Resolution (02-conflict-resolution.md):** Conflicts detected during pipeline execution (disagreement between cubelets, cross-framework disagreements) are resolved through the escalation chain. STA cubelets' constraints take precedence over STD cubelets' preferences.
+- **Pod Assembly (03-pod-assembly.md):** DAG construction happens after pod assembly. STSol templates and CIG edges define structural constraints. Cubelet I/O declarations (from cubelet manifests including lattice_id) are used for capability matching during assembly AND for type checking during DAG construction.
+- **Pod Orchestrator (05-pod-orchestrator.md):** Pod Orch builds the DAG using CIG edges as structural guidance, manages control messages, handles pipeline failures, and synthesizes results.
+- **Verification & Audit (06-verification-audit.md):** STF cubelets in the pipeline route results to their bound fabric threads (EthosLedger, KarbonLedger, etc.) for domain-specific logging.
+- **Knowledge Base (12-knowledge-base.md):** Cubelet outputs flowing through the data pipeline can be logged as KB entries when they meet confidence thresholds. The CIG provides structural context - pipeline edge data is stored on top of the CIG backbone in Neo4j.

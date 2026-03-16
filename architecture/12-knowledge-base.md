@@ -1,6 +1,6 @@
 # MYOS Knowledge Base - Hierarchical, Authority-Governed Knowledge System
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
@@ -8,7 +8,11 @@
 
 Every LLM in MYOS - System Orchestrator, Domain Orchestrators, Pod Orchestrators, LLM cubelets - can hallucinate. The Knowledge Base (KB) grounds agent outputs in **verified, confidence-scored, authority-governed facts** instead of relying solely on training data.
 
-The KB is not a simple database. It is a **hierarchical, authority-integrated knowledge system** where:
+The KB is built on top of the **Cubelet Interaction Graph (CIG)** - the same Neo4j instance that stores the 750-node lattice with 1500+ structural edges. The CIG provides the **structural backbone**: which cubelets relate to which, through what edge types (DEPENDS_ON, PROVES, GOVERNS, INFORMS, etc.). Runtime knowledge (facts, confidence scores, verified outputs) accumulates as properties on CIG nodes and edges. The KB doesn't start empty - it starts with 750 nodes and pre-seeded structural relationships.
+
+**Domain KBs map to STF fabric threads.** Each fabric thread (EthosLedger, KarbonLedger, KnowledgeLedger, etc.) corresponds to a domain-specific knowledge store. This means domain knowledge is co-located with the fabric infrastructure that handles it - carbon knowledge in KarbonLedger, identity knowledge in IdentLedger, etc.
+
+The KB is a **hierarchical, authority-integrated knowledge system** where:
 
 - Knowledge entries have their own **confidence scores** that evolve like Authority Values (confirmed → gains confidence, contradicted → loses confidence)
 - Agents need sufficient **knowledge dimension AV** to write entries
@@ -24,10 +28,10 @@ KNOWLEDGE BASE ARCHITECTURE:
   │  Cross-domain facts, operational rules, system patterns      │
   │  Managed by: System Orchestrator                             │
   ├──────────────────────────────────────────────────────────────┤
-  │  DOMAIN KBs (per vertical)                                   │
+  │  DOMAIN KBs (mapped to STF fabric threads)                    │
   │  ┌────────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐     │
-  │  │ Healthcare │ │ DeFi     │ │ Carbon   │ │ AI/ML    │     │
-  │  │ KB         │ │ KB       │ │ KB       │ │ KB       │     │
+  │  │ Knowledge  │ │ Finance  │ │ Karbon   │ │ Research │     │
+  │  │ Ledger KB  │ │ Ledger KB│ │ Ledger KB│ │ LedgerKB │     │
   │  └────────────┘ └──────────┘ └──────────┘ └──────────┘     │
   │  Managed by: Domain Orchestrators                            │
   ├──────────────────────────────────────────────────────────────┤
@@ -904,6 +908,10 @@ INV-18: Session Memory KB entries carry relevance weights that decay with action
 INV-19: Context checkpoints are written at configured intervals and before any pipeline-altering decision
 INV-20: Context reload retrieves entries sorted by current_weight descending (most relevant first)
 INV-21: Context checkpoints include active goals, established constraints, and top-weighted entries
+INV-22: KB is built on top of the CIG (Neo4j) - runtime knowledge accumulates as properties on structural nodes/edges
+INV-23: Domain KBs map to STF fabric threads (KarbonLedger KB, FinanceLedger KB, etc.)
+INV-24: The CIG structural backbone (750 nodes, 1500+ edges) is pre-seeded at boot - the KB never starts empty
+INV-25: CIG edge types (PROVES, GOVERNS, INFORMS) provide structural context for knowledge queries
 ```
 
 ---
@@ -950,12 +958,14 @@ COMPLIANCE PROPERTIES:
 
 ## 13. Interaction with Other Documents
 
-- **Authority Model (01):** Knowledge dimension AV governs write access. Confidence scoring uses same diminishing returns / constant penalty math as AV. Author AV at creation determines initial confidence.
-- **Conflict Resolution (02):** Knowledge contradictions use the same 4-level escalation chain (confidence comparison → evidence voting → orchestrator arbitration → human review).
-- **Pod Assembly (03):** Pod KBs are ephemeral - created at pod assembly, destroyed at pod dissolution. Session Pods maintain Session Memory KB.
-- **Cubelet I/O (04):** Cubelet outputs can be logged as KB entries in the Pod KB. Pipeline edge data can be referenced as evidence for knowledge entries. Decision context entries (§4.4) are stored in Pod KB and promoted to Session Memory KB, linking the reasoning DAG to the data DAG.
-- **Pod Orchestrator (05):** Pod Orch manages Pod KB lifecycle. Evaluates discoveries for promotion on pod dissolution. Uses KB for query routing decisions. Coherence self-check (§6.3) triggers context reload from Session Memory KB checkpoints when context degradation is detected. Context weight scoring (§3.5) and checkpointing (§3.6) provide the data for coherence recovery.
-- **Verification & Audit (06):** KB metadata changes are on-chain events. Content is off-chain with hash verification. Same content-addressed storage infrastructure.
-- **Runtime Infrastructure (08):** Vector DB and Graph DB run as NixOS services on compute nodes.
-- **Node Topology (10):** System KB on core server. Domain KBs on domain servers. Pod KBs ephemeral on compute nodes. Edge sensors contribute sensor data entries with high decay rates.
-- **Repository Mapping (11):** FACT repo provides deterministic KB query tool. SynthLang/PromptLang may define domain-specific KB query patterns.
+- **Master Document (00):** Defines the Rubik's Lattice, CIG, STF fabric threads, and PCCSCEFVRI ethical anchor that the KB is built upon. The KB's structural backbone IS the CIG.
+- **Authority Model (01):** Knowledge dimension AV governs write access. STK invariants are checked before KB writes (dual-gate: AV + invariants). Confidence scoring uses same diminishing returns / constant penalty math as AV. Author AV at creation determines initial confidence.
+- **Conflict Resolution (02):** Knowledge contradictions use the same 4-level escalation chain. CIG GOVERNS edges inform Level 3 arbitration - the System Orch consults STA cubelets that govern the knowledge domain. STK invariant precedence (safety > privacy > verifiability > ...) resolves invariant-level contradictions.
+- **Pod Assembly (03):** Pod KBs are ephemeral - created at pod assembly, destroyed at pod dissolution. STSol templates define which cubelets (and thus which KB regions) are relevant to a pod. Session Pods maintain Session Memory KB.
+- **Cubelet I/O (04):** Cubelet outputs can be logged as KB entries in the Pod KB. Pipeline edge data flows through the framework ordering (STA → STI → STD → STF → STK), with STF cubelets recording results to their bound fabric threads (= Domain KBs).
+- **Pod Orchestrator (05):** Pod Orch manages Pod KB lifecycle. Uses CIG structural context for query routing - following INFORMS and DEPENDS_ON edges to find relevant knowledge. Coherence self-check triggers context reload from KB checkpoints.
+- **Verification & Audit (06):** KB metadata changes are on-chain events, routed through STF fabric threads. Content is off-chain with hash verification. STK invariant satisfaction (PROVES edges) is logged alongside KB updates.
+- **Runtime Infrastructure (08):** Vector DB (Qdrant) and Graph DB (Neo4j, shared with CIG) run as NixOS services on compute nodes.
+- **Communication (09):** STF fabric threads are multiplexed across P2P channels - Domain KB queries route through the appropriate fabric thread. Cross-device KB access uses CIG FEDERATES edges.
+- **Node Topology (10):** System KB + CIG on core server. Domain KBs (mapped to fabric threads) on domain servers. Pod KBs ephemeral on compute nodes. Edge sensors contribute Stage 4 sensor data entries with high decay rates.
+- **Repository Mapping (11):** FACT repo provides deterministic KB query tool. CIG (Neo4j) is pre-seeded with 750 nodes and 1500+ edges from the cubelet registry at boot.

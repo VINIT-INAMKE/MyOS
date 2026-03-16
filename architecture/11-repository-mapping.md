@@ -1,12 +1,14 @@
 # MYOS Repository Mapping - Existing Repos to Architecture Layers
 
-## Version: 1.0 | Status: LOCKED
+## Version: 2.0 | Status: LOCKED
 
 ---
 
 ## 1. Overview
 
 This document maps every usable repository from the [ruvnet/agenticsorg portfolio](../readme.md) to the MYOS architecture. Each repo is assigned to a specific layer, component, and role. Repos not applicable to MYOS are listed separately with rationale.
+
+Repos are mapped to the **Rubik's Lattice** (10 stages × 5 frameworks × 15 cubelets per cell = 750 total). Each repo's cubelets are assigned lattice positions based on their function. Math-bound cubelets (STK/STF frameworks) run in Tier 1 Wasm+Unikernel isolation. ML/DL cubelets (STI framework) run in Tier 1-2 Wasm. LLM cubelets (some STA/STD) run in Tier 3 containers.
 
 **Total repos evaluated:** 70+
 **Repos mapped to MYOS:** 38
@@ -320,19 +322,23 @@ INV-7:  No repo is used that introduces a dependency on a specific cloud provide
 INV-8:  Security scanning (Agentic Security) runs on every component before deployment
 INV-9:  Phase 1 repos must be integrated and tested before Phase 2 work begins
 INV-10: Repos are INTEGRATED (wrapped, adapted), not replaced or rewritten
+INV-11: Every integrated repo's cubelets must be assigned a lattice position (Framework-Stage-Index)
+INV-12: CIG (Cubelet Interaction Graph) must be populated with all integrated cubelet nodes and edges before Phase 2
+INV-13: STK invariant definitions from the cubelet registry must be loaded into the Authority Engine at boot
 ```
 
 ---
 
 ## 9. Interaction with Other Documents
 
-- **Node Topology (10):** Repo assignments align with hardware topology - edge repos run on RISC-V, core repos on x86/ARM.
-- **Authority Model (01):** Authority Engine is NEW (Haskell). qudag-crypto provides cryptographic primitives for signing decisions.
-- **Pod Assembly (03):** Cubelet repos (ONNX-Agent, ruv-fann, etc.) define the 750 cubelet pool capabilities.
-- **Cubelet I/O (04):** Pipeline data flows through qudag-network for cross-device edges.
-- **Pod Orchestrator (05):** Claude-Flow is the base framework for all orchestrator levels.
-- **Verification & Audit (06):** qudag-dag + Ouroboros (new) form the chain layer. qudag-protocol defines wire format.
-- **Boot & Trust Chain (07):** qudag-crypto + qudag-vault-core provide boot verification cryptography.
-- **Runtime Infrastructure (08):** ONNX-Agent cubelets run in Wasm+Unikernel. MidStream cubelets run in containers.
-- **Communication (09):** qudag-network + qudag-protocol + Federated MCP form the full networking stack.
-- **Knowledge Base (12-knowledge-base.md):** FACT repo provides deterministic KB query tooling (fast context retrieval replacing RAG). Vector DB (Qdrant) and Knowledge Graph DB are new infrastructure components supporting the hierarchical KB.
+- **Master Document (00):** Defines the Rubik's Lattice (10×5×15 = 750 cubelets), CIG, STSol templates, and fabric threads that all repos must integrate into.
+- **Node Topology (10):** Repo assignments align with hardware topology and lattice stages - edge repos (Stage 0, 4) run on RISC-V, GPU repos (Stage 3) on x86, core repos on x86/ARM.
+- **Authority Model (01):** Authority Engine is NEW (Haskell). Enforces STK invariants (150, loaded from cubelet registry). qudag-crypto provides cryptographic primitives for signing decisions.
+- **Pod Assembly (03):** Cubelet repos (ONNX-Agent, ruv-fann, etc.) define cubelet capabilities at specific lattice positions. STSol templates define which cubelets assemble into pods.
+- **Cubelet I/O (04):** Pipeline data flows through STF fabric threads and qudag-network for cross-device edges. Framework ordering (STA → STI → STD → STF → STK) governs pipeline construction.
+- **Pod Orchestrator (05):** Claude-Flow is the base framework for all orchestrator levels. Pod Orchs use open-source models (Llama 8B).
+- **Verification & Audit (06):** qudag-dag + Ouroboros (new) form the chain layer. STF fabric threads route domain-specific logs. qudag-protocol defines wire format.
+- **Boot & Trust Chain (07):** qudag-crypto + qudag-vault-core provide boot verification. CIG is loaded into Neo4j during boot sequence. STK invariant definitions verified before system goes operational.
+- **Runtime Infrastructure (08):** Math-bound cubelets (STK/STF) in Tier 1 Wasm+Unikernel. ML/DL cubelets (STI) in Tier 1-2 Wasm. LLM cubelets in Tier 3 containers.
+- **Communication (09):** qudag-network + qudag-protocol + Federated MCP form the full networking stack. STF fabric threads multiplexed across P2P channels.
+- **Knowledge Base (12):** FACT repo provides deterministic KB query tooling. CIG (Neo4j) is the KB's structural backbone - 750 nodes with pre-seeded relationships. Qdrant provides vector search on top.
