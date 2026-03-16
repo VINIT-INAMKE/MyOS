@@ -42,7 +42,3 @@ No single component holds the whole picture - the architecture does.
 | Node types and orchestrator hierarchy     | [10-node-topology-orchestrator-hierarchy.md](architecture/10-node-topology-orchestrator-hierarchy.md) |
 | How repos map to architecture layers      | [11-repository-mapping.md](architecture/11-repository-mapping.md)                                     |
 | How knowledge is stored and governed      | [12-knowledge-base.md](architecture/12-knowledge-base.md)                                             |
-
-## Cubelet Universe (source definitions)
-
-The full 750-cubelet registry, interaction graph spec, Neo4j import scripts, and implementation roadmap live in [`cubeletuni/`](../cubeletuni/). These are the source definitions that the architecture docs reference.
