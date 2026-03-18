@@ -398,6 +398,53 @@ PRIVACY ROUTER:
 
 **Implementation note:** When implementing the Privacy Router and L7 network policies, study the actual Rust source code in NVIDIA OpenShell (https://github.com/NVIDIA/OpenShell, Apache 2.0). The policy engine (`src/policy/`) and gateway routing code provide proven patterns for HTTP interception, Landlock integration, and hot-reloadable policy evaluation. Do not reimagine these from scratch.
 
+### 3.7 Inference Router — BYOK Multi-Provider
+
+The inference router now supports 16 providers via OpenAI-compatible API, with BYOK (Bring Your Own Key) for user-managed inference costs.
+
+**Provider Categories:**
+
+| Category | Providers | Characteristics |
+|----------|-----------|-----------------|
+| Speed-Optimized | Groq, Cerebras, SambaNova | Ultra-low latency, custom hardware |
+| Open-Source Specialists | Together AI, Fireworks AI, DeepInfra, Hyperbolic, Novita, SiliconFlow | Cost-efficient, 200+ models |
+| Major Cloud | OpenAI, Anthropic, Google | Proprietary models, highest capability |
+| Meta-Routers | OpenRouter | Routes across providers, single API key |
+| Self-Hosted | Ollama, vLLM, LocalAI | Zero API cost, privacy-preserving |
+
+All providers use a unified 3-field config: `base_url`, `api_key`, `model_name`.
+
+**5 Model Tiers:**
+
+| Tier | Params | Token Budget (in/out) | AV Floor | Cost (Groq) | Use Case |
+|------|--------|-----------------------|----------|-------------|----------|
+| E (Edge) | 1-1.5B | 512/128 | 100 | $0.00 (local) | Classification, filtering, edge devices |
+| A (Fast) | 8B | 1024/256 | 200 | $0.05/$0.08 per M | Intent extraction, routing, summarization |
+| B (Balanced) | 17-32B | 2048/512 | 350 | $0.11/$0.34 per M | Policy reasoning, explanation, analysis |
+| C (Deep) | 70B+ | 4096/1024 | 500 | $0.59/$0.79 per M | Complex synthesis, ethical reasoning, user-facing |
+
+**Cost Optimization (8 layers):**
+1. Model tiering — always route to cheapest capable model
+2. Token budgets — hard per-call limits enforced at router
+3. Prompt templates — pre-optimized system prompts per cubelet role
+4. Semantic cache — cache responses for similar queries (cosine > 0.95, 5min TTL)
+5. Short-circuit evaluation — math-bound cubelet handles if possible, skip LLM
+6. Batch API — aggregate non-urgent requests for 50% Groq discount
+7. Prompt caching — reuse cached prefixes for 50% input token discount
+8. Token metering — real-time tracking with alerts and hard stops
+
+**Session Budgets:**
+- Default: 500K tokens / $1.00 per session
+- Premium: 5M tokens / $10.00 per session
+- Unlimited: no caps (enterprise)
+
+### 3.8 Deployment Model
+
+MYOS is a closed-source system deployed by the operating team. Users connect as a service with BYOK for LLM inference. The architecture is designed for easy multi-region deployment:
+- MYOS controls: routing logic, token budgets, authority engine, cost optimization
+- Users control: API provider choice, API keys, session budget preferences
+- Provider flexibility: any OpenAI-compatible endpoint works with zero code changes
+
 ---
 
 ## 4. Inter-Process Communication (IPC)
@@ -888,6 +935,9 @@ INV-26: Inter-kernel federation requires mutual remote attestation before any da
 INV-27: Crypto algorithm switching uses dual-sign period — both old and new must verify
 INV-28: Defense middleware runs on every cubelet output before IPC delivery (no bypass without safety AV >= 800)
 INV-29: PII detected in cubelet output is redacted before crossing cubelet boundaries
+INV-30: Inference router enforces per-call token budgets by model tier — no LLM call exceeds its tier's token limit
+INV-31: All inference provider configs use the unified 3-field format (base_url, api_key, model_name) — no provider-specific auth logic
+INV-32: Session token/cost budgets are enforced at the router level — sessions exceeding their budget are hard-stopped
 ```
 
 ---

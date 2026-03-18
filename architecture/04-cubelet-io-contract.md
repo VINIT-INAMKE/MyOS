@@ -81,6 +81,34 @@ cubelet_io_declaration {
 }
 ```
 
+### Model Tier Assignment (LLM Cubelets Only)
+
+Each LLM cubelet declares model tier constraints in its manifest:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `minimum_tier` | `E\|A\|B\|C` | Yes (LLM only) | Minimum model tier — enforced at pod assembly |
+| `recommended_tier` | `E\|A\|B\|C` | No | System-recommended tier for optimal quality |
+| `user_tier_override` | `E\|A\|B\|C` | No | User's chosen tier (must be ≥ minimum_tier) |
+
+**Tier levels** (ordered by capability):
+- **E (Edge)**: 1-1.5B params — classification, filtering, simple routing. Local inference, zero API cost.
+- **A (Fast)**: 8B params — intent extraction, summarization, format conversion.
+- **B (Balanced)**: 17-32B params — policy interpretation, consent reasoning, explanation generation.
+- **C (Deep)**: 70B+ params — complex synthesis, ethical reasoning, user-facing query handling.
+
+**Effective tier resolution:**
+1. If `user_tier_override` is set and ≥ `minimum_tier` → use override
+2. If `user_tier_override` < `minimum_tier` → clamp up to minimum (reject at assembly if strict)
+3. If no override → use `recommended_tier`, falling back to `minimum_tier`
+
+**Enforcement chain:**
+- Pod assembly validates `user_tier_override >= minimum_tier` before wiring the pod
+- Authority engine resets AV to tier-appropriate floor on any model change
+- STK invariants validate output quality regardless of tier — a cheap model that passes invariants is acceptable
+
+Non-LLM cubelets (math-bound, ML/DL) leave all tier fields as `None`.
+
 **Type compatibility rule:**
 
 ```

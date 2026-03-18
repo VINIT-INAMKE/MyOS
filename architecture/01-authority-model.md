@@ -369,6 +369,24 @@ system_config {
 }
 ```
 
+### 4.5 Tier-Based AV Floors for LLM Cubelets
+
+LLM cubelets have tier-specific AV floors based on their model capability level. Higher-tier models start with higher floors, reflecting greater expected reliability:
+
+| Model Tier | Parameters | AV Floor | Rationale |
+|-----------|------------|----------|-----------|
+| E (Edge) | 1-1.5B | 100.0 | Low-stakes classification, local inference |
+| A (Fast) | 8B | 200.0 | Standard lightweight tasks |
+| B (Balanced) | 17-32B | 350.0 | Policy reasoning, requires higher baseline trust |
+| C (Deep) | 70B+ | 500.0 | User-facing synthesis, starts with significant trust |
+
+**Rules:**
+- Non-LLM cubelets (math-bound, ML/DL) use the default dimension floor from config
+- When a cubelet's model changes (`model_hash` update), AV resets to the tier-appropriate floor
+- Users can assign models at or above a cubelet's minimum tier, never below
+- The minimum tier is declared in the cubelet manifest and enforced at pod assembly
+- If a user downgrades from Tier C to Tier B, AV resets to B's floor (350.0), not C's (500.0)
+
 ---
 
 ## 5. Authority Update Model (Reinforcement)

@@ -247,7 +247,21 @@ dag_construction(task, cubelets):
     5. Finalize DAG → pipeline ready for execution
 ```
 
-### 4.2 Pipeline Execution Management
+### 4.2 Model Tier Enforcement
+
+During pod assembly, the Pod Orchestrator enforces model tier constraints for all LLM cubelets:
+
+1. Each LLM cubelet's manifest declares a `minimum_tier` (E/A/B/C)
+2. If the user has set a `user_tier_override`, verify `override >= minimum_tier`
+3. If violated → reject pod assembly with `TierViolation` error (never silently upgrade)
+4. Resolve the effective tier: user override (if valid) > recommended > minimum
+
+**Self-correcting loop:**
+- User picks cheap model → outputs degrade → AV drops → cubelet quarantined
+- System recommends: "upgrade to Tier B" → user upgrades → AV resets → cubelet re-earns trust
+- STK invariants are the ultimate safety net — any model that passes invariants is acceptable
+
+### 4.3 Pipeline Execution Management
 
 During execution, the Pod Orchestrator:
 
@@ -260,7 +274,7 @@ During execution, the Pod Orchestrator:
 - Detects and responds to failures (tiered failure response)
 ```
 
-### 4.3 Cubelet Monitoring
+### 4.4 Cubelet Monitoring
 
 The Pod Orchestrator has **full visibility** into its cubelets' Authority Values.
 
@@ -287,7 +301,7 @@ Pod Orch uses AV visibility for:
 - Deciding which cubelet to trust when outputs conflict (before formal conflict resolution)
 - Informing its reasoning about failure response
 
-### 4.4 Result Synthesis
+### 4.5 Result Synthesis
 
 The Pod Orchestrator synthesizes results from the pipeline using its **LLM capabilities**.
 
@@ -316,7 +330,7 @@ synthesis_scenarios:
 
 Synthesis is NOT a simple concatenation or merge function. It is LLM-driven reasoning about the outputs.
 
-### 4.5 Query Routing (Session Pods)
+### 4.6 Query Routing (Session Pods)
 
 In session pods (AI interaction), the Pod Orchestrator routes queries:
 
@@ -633,6 +647,32 @@ pod_orchestrator_config {
     coherence_penalty_rate: 0.15            // per inconsistency
 }
 ```
+
+### BYOK (Bring Your Own Key) Inference
+
+MYOS uses a BYOK model for LLM inference. Users supply their own API keys for their preferred provider:
+
+**Supported providers** (all OpenAI-compatible API):
+- Speed-optimized: Groq (recommended), Cerebras, SambaNova
+- Open-source specialists: Together AI, Fireworks AI, DeepInfra, Hyperbolic, Novita, SiliconFlow
+- Major cloud: OpenAI, Anthropic (adapter), Google (OpenAI compat mode)
+- Meta-routers: OpenRouter
+- Self-hosted: Ollama, vLLM, LocalAI
+
+**Configuration** (per user session):
+```yaml
+provider:
+  base_url: "https://api.groq.com/openai/v1"
+  api_key: "<user-provided>"        # in-memory only, never persisted
+  model: "llama-3.1-8b-instant"     # resolved from tier + provider
+```
+
+**Cost controls enforced by inference router:**
+- Token budgets: hard per-call limits per tier (E: 512/128, A: 1024/256, B: 2048/512, C: 4096/1024)
+- Session budgets: configurable max tokens and max cost per session
+- Semantic cache: identical/similar queries served from cache (5min TTL)
+- Short-circuit: if math-bound cubelet can handle it, LLM is never invoked
+- Token metering: real-time usage tracking with alerts at 80% and hard stop at 100%
 
 ---
 
