@@ -817,3 +817,26 @@ All values are defined at system configuration time and are immutable at runtime
 - **Verification & Audit (06-verification-audit.md):** All conflict records, vote logs, and resolution decisions are logged on-chain. STK invariant violations during conflict resolution are flagged as specification-gap events.
 - **Node Topology (10-node-topology-orchestrator-hierarchy.md):** Defines the Domain Orchestrator topology - which Domain Orch handles which stages. Domain Orchestrators are parallel peers under System, and their domain boundaries determine conflict routing.
 - **Knowledge Base (12-knowledge-base.md):** When an LLM output contradicts a verified KB entry, the contradiction is treated as a conflict and routed through the same 4-level escalation chain (AV comparison → pod vote → Domain/System Orch → human-in-the-loop). KB contradiction resolution follows identical timeout and fallback rules. The CIG backbone provides structural context for KB contradictions.
+
+---
+
+## 12. Implementation Status
+
+**Status: IMPLEMENTED** — Rust crate `conflict-resolution` (7 modules, ~4400 lines, ~50 tests)
+
+All four escalation levels are implemented in the `conflict-resolution` crate:
+
+- **Level 1** (`level1.rs`): Direct AV comparison with configurable timeout (default 100ms). Tie detection triggers auto-escalation.
+- **Level 2** (`level2.rs`): AV-weighted pod vote with quorum enforcement (min 3 or 50% of pod), confidence threshold (default 0.6), and vote eligibility filtering.
+- **Level 3** (`level3.rs`): System Orchestrator arbitration using CIG-informed weighted scoring (STK compliance 0.25, STA alignment 0.20, safety 0.25, AV alignment 0.10, resource efficiency 0.10, vote support 0.10). Confidence margin check for escalation.
+- **Level 4** (`level4.rs`): Human-in-the-loop with vote (max AV weight), veto (safety-critical only), and delegate-back actions. Timeout fallback selects the safest option.
+
+**Escalation chain** (`escalation.rs`): Wires all four level functions into a single chain with inter-level context passing. Each level's output (including partial results, vote tallies, scores) flows as context into the next level. Timeout at any level triggers automatic escalation. Cascade depth tracking enforced (max 3).
+
+**STK conflict routing**: Invariant conflicts resolved via precedence order (Safety & Security > Privacy & Consent > Verifiability & Determinism > Fairness & Equity > Accountability & Audit > Planetary Integrity > Ethical Reflexivity). Hard invariant violations reject proposals outright.
+
+**Domain Orchestrator pre-filter**: Intra-domain conflicts (single stage) route to the Domain Orchestrator before reaching the System Orchestrator. Cross-domain conflicts skip directly to Level 3.
+
+**System-wide integration**: The `myos-daemon` initializes the conflict resolution service at boot. Pod Orchestrator failure recovery (Tier 4 — full pod restructure) routes through the escalation chain when restructure decisions require cross-pod arbitration.
+
+**Test coverage**: ~50 tests covering all four levels individually, the full escalation chain, STK precedence logic, timeout behavior, cascade depth limits, and safety emergency bypass.
