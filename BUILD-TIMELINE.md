@@ -742,6 +742,11 @@ myos/
    - Content-based dedup: `task_id = BLAKE3(task_type + context_params)`
    - Lock acquisition: atomic compare-and-swap on task_id
 
+**Architecture notes (from finalComp/repo audit):**
+- STSol templates now reference Soul Papers (confidence=1000 KB entries) as the founding document for each solution — the Soul Paper defines the normative intent the pod must fulfill
+- Assembly must validate cross-framework handshake contracts (doc 13) before pipeline activation — each cubelet pair crossing a framework boundary must have a signed handshake proving type compatibility and authority delegation
+- Pod lifecycle tracks STD/STS lifecycle phases: Aggregation → Coordination → Execution → Evaluation → Adaptation → Sunset — dissolution triggers differ per phase
+
 **Exit criteria:** `assemble_pod("AI-Safety-Guard")` resolves STSol → selects 3-5 cubelets from CIG → locks them → launches pipeline → returns running Pod. `dissolve_pod` releases all cubelets with correct AV updates.
 
 ---
@@ -799,6 +804,12 @@ myos/
    - Sub-pod spawning for complex queries (fan-out, no nesting)
    - Tiered release: specialized cubelets released on idle, core kept until session timeout
 
+**Architecture notes (from finalComp/repo audit):**
+- Pod Orch manages framework lifecycle phase transitions for its cubelets — tracking each cubelet's position in the Aggregation → Coordination → Execution → Evaluation → Adaptation → Sunset lifecycle
+- DAG construction must respect DSL verb hierarchy: STA `select{}` → STI `bind{}` → STD `realize{}` → STF `weave{}` → STK `enforce{}` — this is the canonical ordering from the DSL spec, not just framework alphabetical order
+- Rollout controls for pod changes: canary deployment (route subset of traffic to new DAG), soak period (minimum observation window before full cutover), auto-rollback if `proof_failure_rate` exceeds threshold
+- Coherence self-check now includes cross-framework handshake validation — Pod Orch must verify all handshake contracts remain valid after any DAG restructure or cubelet replacement
+
 **Exit criteria:** Pod Orch receives task + cubelets → builds DAG respecting framework ordering → executes pipeline → synthesizes result → handles cubelet failure with tier 1-2 recovery. Session pod persists across multiple queries.
 
 ---
@@ -815,6 +826,11 @@ myos/
 4. **`conflict-resolution/src/level4.rs`** — Human-in-the-loop (configurable timeout, vote/veto/delegate)
 5. **`conflict-resolution/src/escalation.rs`** — Timeout auto-escalation, cascade depth tracking (max 3), safety emergency bypass
 6. **`conflict-resolution/src/safety.rs`** — Safety emergency: bypass all levels, execute safest action immediately, P0 priority
+
+**Architecture notes (from finalComp/repo audit):**
+- Level 3 arbitration uses STK+ resilience data (anomalous AV trajectories, circuit breaker state) — the System Orch can factor in whether a cubelet's AV has been volatile or whether its circuit breaker has tripped recently
+- STK invariant conflicts resolved by family precedence (from PerlFrame) with Hard > Soft > Adaptive constraint ordering — Hard constraints (e.g., `safety.refusal_on_redline`) are immutable and always win; Soft constraints require Level 4 authority to override; Adaptive constraints auto-tune within bounds
+- Inter-kernel federation disputes routed through treaty ledger — when cubelets from different kernel domains conflict, the treaty ledger (from fabric thread taxonomy) provides the adjudication record
 
 **Exit criteria:** Two cubelets disagree → escalation chain runs L1→L2→L3→L4 with correct timeouts. Timeout at any level triggers next level. Safety emergency bypasses everything.
 
@@ -853,6 +869,12 @@ myos/
 4. **`verification/src/merkle.rs`** — Periodic merkle root:
    - Batch off-chain hashes → compute merkle tree → store root in on-chain log
    - Frequency configurable (every N minutes or every N records)
+
+**Architecture notes (from finalComp/repo audit):**
+- Statistical monitoring thresholds: `proof_success >= 98%`, `telemetry_coverage >= 90%`, `interop_success >= 95%` — these are the health gates; breaching any threshold triggers alert escalation
+- Maturity level tracking: L1 (visible) → L2 (interoperable) → L3 (provable), with FCR (First-Call Resolution) metric — cubelets and pods advance maturity levels as they demonstrate sustained compliance
+- STK+ observability thread: merkle root every 5 minutes, BLAKE3 hash chains — the 5-minute cadence is the default; configurable per deployment but must not exceed 10 minutes for compliance
+- Decision context logging with `DecisionType` enum (already defined in `data-pipeline/src/logging.rs`) — all verification records must include the decision type for audit filtering
 
 **Exit criteria:** Every authority decision is logged with full context. Off-chain data is content-addressed and tamper-evident. Merkle roots link off-chain to on-chain.
 
@@ -899,6 +921,11 @@ myos/
    - On-chain: pseudonymize author_id, log erasure event
    - Cascade: track promoted copies, erase all
 
+**Architecture notes (from finalComp/repo audit):**
+- Soul Papers stored as System KB entries with confidence=1000 (non-decaying) — these are the founding documents for each STSol and are never subject to confidence decay or contradiction override
+- Domain KBs mapped to fabric thread taxonomy: SIPs (System Integrity Proofs), Sectoral (domain-specific), Cross-Domain (shared between stages), Ethical (PerlFrame-anchored), Resilience (STK+ recovery knowledge)
+- 18+ named ledgers from thread taxonomy feed into domain KB structure — each ledger (EthosLedger, KarbonLedger, IdentLedger, ResearchLedger, TreatyLedger, etc.) has a corresponding Domain KB partition that receives its verified entries
+
 **Exit criteria:** KB query returns VERIFIED/PARTIAL/UNVERIFIED results. Contradictions are blocked and escalated. Confidence scores update correctly. Pod KB promotes knowledge on dissolution.
 
 ---
@@ -938,6 +965,14 @@ It also forces you to **train real models early**. You can't test STI cubelets (
 | **STK-3-C** | Kernel | Math-bound | Explainability Invariant Checker — evaluates `explainability.required`: if STI-3-A score < minimum threshold → FAIL (response is not explainable enough) | Rust invariant evaluator. Input: explainability_score from STI-3-A. Output: pass/fail. | No — threshold comparison |
 
 **That's 11 cubelets: 6 math-bound (no training), 3 ML/DL (need training), 2 LLM (pre-trained).**
+
+**Architecture notes for Stage 3 assembly (from finalComp/repo audit):**
+- Each cubelet must declare its framework lifecycle phase (from doc 13) — at assembly time, every cubelet reports whether it is in Aggregation, Coordination, Execution, etc., and the pod cannot activate until all are in a compatible phase
+- STSol Soul Paper for AI-Safety-Guard must be created as a KB entry before pod assembly — this is a confidence=1000 System KB entry that defines the normative safety intent; pod assembly will refuse to proceed without it
+- Cross-framework handshakes verified between all 11 cubelets before pipeline activation — particularly the STA→STI, STI→STD, STD→STF, and STF→STK boundary crossings must each have a signed handshake contract
+- Privacy Router configuration needed for STD-3-A (inference runtime) calling Ollama API — the container cubelet must route LLM API calls through the Privacy Router to prevent prompt leakage and enforce data sovereignty
+- L7 network policies needed for container cubelets (from OpenShell patterns in doc 08) — STD-3-A and any other Tier 3 container cubelets require explicit L7 (application-layer) network policies; default is deny-all
+- Adaptive constraint support: `explainability.required` is Soft (adjustable with Level 4 authority), `safety.refusal_on_redline` is Hard (immutable, cannot be overridden at any authority level)
 
 ### Model Training Plan for Stage 3
 
@@ -1089,6 +1124,16 @@ Each domain follows the same pattern:
 6. Create STSol templates
 7. Integration test: full pipeline with real data
 8. AV starts at 0 — cubelets earn trust through the test suite
+
+### Extension Order (Infrastructure Extensions Beyond Domain Verticals)
+
+These are cross-cutting infrastructure extensions that get wired in alongside or after domain verticals:
+
+| Extension | When to Build | Architecture Notes (from finalComp/repo audit) |
+|-----------|--------------|------------------------------------------------|
+| Ouroboros chain | After Component 9 SQLite is proven, before Stage 4 | Implementation should include statistical monitoring thresholds (`proof_success >= 98%`, `telemetry_coverage >= 90%`, `interop_success >= 95%`) as on-chain health gates — breaching a threshold triggers chain-level alert escalation |
+| qudag-network | After Stage 0 identity cubelets are deployed | Integration should include inter-kernel federation protocol — qudag nodes that span kernel boundaries must route disputes through the treaty ledger and respect federation handshake contracts |
+| Rubik's Moves (DAG restructuring) | After Pod Orch is stable with 2+ domain verticals | Implementation must respect `ConstraintType`: Hard constraints cannot be modified by any Rubik's Move (they are immutable invariants); Soft constraints require Level 4 authority to restructure around; Adaptive constraints auto-tune within declared bounds and can be freely reorganized |
 
 ---
 
