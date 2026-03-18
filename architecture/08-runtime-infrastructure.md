@@ -955,3 +955,19 @@ INV-32: Session token/cost budgets are enforced at the router level — sessions
 - **STF Fabric Threads:** The 11+ named ledgers influence resource allocation at runtime - fabric threads carrying safety-critical data (e.g., EthosLedger) require Tier 1 isolation for all cubelets in their path.
 - **Existing Repos:** Wasm runtime hosts cubelets compiled from ONNX-Agent and ruv-fann. Container runtime hosts LLM agents.
 - **Knowledge Base (12-knowledge-base.md):** Vector DB and Knowledge Graph DB run as NixOS-managed services on compute nodes. These services support KB queries, semantic search, and knowledge graph traversal for the hierarchical KB (System, Domain, Pod levels).
+
+---
+
+## 12. TUI Dashboard (Post-MVP)
+
+MYOS includes a terminal-based dashboard built with `ratatui` for real-time system visualization:
+
+| Panel | Shows |
+|-------|-------|
+| Lattice Heatmap | 750 cubelets colored by AV value (red=low, green=high) |
+| Pod Assembly | Live pod construction, cubelet selection, tier validation |
+| Inference Router | Model tier routing, token metering, cost tracking per session |
+| Authority Engine | Real-time AV changes (rewards, penalties, decay) |
+| System Boot | 5-phase boot sequence visualization |
+
+Runs in any terminal. No browser or external dependencies.
