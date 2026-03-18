@@ -767,6 +767,30 @@ The STK kernel evolves beyond basic invariant checking into **STK+** — additio
 - Survival analysis targeting 2035 for post-quantum readiness (ML-KEM-768, ML-DSA via qudag-crypto)
 - Fallback: if ZK verifier fails >2% over 24 hours, halt all Rubik's Move rollouts until resolved
 
+### 8.6 Defense Middleware Layer
+
+A content-level defense layer complements STK invariants by checking semantic content at runtime. STK invariants verify structural/mathematical constraints; defense middleware verifies content safety. Both must pass.
+
+The defense middleware sits between cubelet output and IPC delivery in the data pipeline:
+
+```
+Cubelet output → Defense Middleware → IPC delivery to next cubelet
+                     │
+                ┌────┴────────────────────┐
+                │ Content Guard           │ — classifies harmful/unsafe content
+                │ PII Scanner             │ — detects and redacts personal data
+                │ Output Verifier         │ — checks tool outputs match expected schema
+                └─────────────────────────┘
+```
+
+- **Content Guard**: Small local classifier model (math-bound cubelet, Tier 1 isolation) that flags harmful, violent, or unsafe content before it crosses cubelet boundaries
+- **PII Scanner**: Detects and redacts personally identifiable information (names, emails, SSNs, etc.) from cubelet outputs before they enter the pipeline
+- **Output Verifier**: Compares tool/cubelet outputs against their declared IoDeclaration schema and expected behavioral bounds — catches manipulated or corrupted outputs
+
+Defense middleware is authority-gated: only cubelets with sufficient AV on the `safety` dimension can bypass content filtering (e.g., safety-critical cubelets that need to process harmful content for classification purposes).
+
+Pattern source: NVIDIA NeMo Agent Toolkit defense middleware pipeline (Apache 2.0).
+
 ---
 
 ## 9. Configuration
@@ -862,6 +886,8 @@ INV-24: STK+ resilience thread monitors cubelet AV trajectories for anomalous dr
 INV-25: Observability merkle root committed every 5 minutes (configurable)
 INV-26: Inter-kernel federation requires mutual remote attestation before any data exchange
 INV-27: Crypto algorithm switching uses dual-sign period — both old and new must verify
+INV-28: Defense middleware runs on every cubelet output before IPC delivery (no bypass without safety AV >= 800)
+INV-29: PII detected in cubelet output is redacted before crossing cubelet boundaries
 ```
 
 ---

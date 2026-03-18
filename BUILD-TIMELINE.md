@@ -812,6 +812,7 @@ myos/
 - **OpenClaw patterns:** Reasoning budget (minimal/standard/deep) per Pod Orch, per-session tool allowlisting as defense-in-depth complementing MBAC
 - **NemoClaw patterns:** Inference Router already implemented in cubelet-runtime (transparent routing, privacy-aware, SecretResolver integration)
 - **Workflow gates:** Lobster-inspired approval checkpoints in STSol templates for human-in-the-loop at pipeline stages (not just conflict resolution Level 4)
+- **NeMo Agent Toolkit patterns:** Defense middleware pipeline (content guard + PII + output verifier) between cubelet output and IPC. Token/cost profiling in InferenceRouter. Trajectory evaluation for pod execution quality.
 
 **Exit criteria:** Pod Orch receives task + cubelets → builds DAG respecting framework ordering → executes pipeline → synthesizes result → handles cubelet failure with tier 1-2 recovery. Session pod persists across multiple queries.
 
@@ -1139,6 +1140,10 @@ These are cross-cutting infrastructure extensions that get wired in alongside or
 | qudag-network | After Stage 0 identity cubelets are deployed | Integration should include inter-kernel federation protocol — qudag nodes that span kernel boundaries must route disputes through the treaty ledger and respect federation handshake contracts |
 | Rubik's Moves (DAG restructuring) | After Pod Orch is stable with 2+ domain verticals | Implementation must respect `ConstraintType`: Hard constraints cannot be modified by any Rubik's Move (they are immutable invariants); Soft constraints require Level 4 authority to restructure around; Adaptive constraints auto-tune within declared bounds and can be freely reorganized |
 | Inference Router wiring | When building Stage 3 cubelets, wire InferenceRouter as pod-level resource — router created at pod assembly, shared by all LLM cubelets, SecretResolver loads from agenix |
+| Defense Middleware | After Component 7 — content guard, PII scanner, output verifier between cubelet output and IPC. Uses small classifier cubelet (math-bound, Tier 1). Pattern from NeMo Agent Toolkit. |
+| Red Teaming Framework | After Phase 2 Stage 3 — adversarial testing per STSol template. Injects attack payloads at cubelet I/O boundaries via IPC interception. LLM judge scores attack success. Produces risk reports. Pattern from NeMo Agent Toolkit. |
+| Token/Cost Profiler | During Phase 2 — extend InferenceRouter with response parsing for token counts, CostAccumulator mapping tokens to dollars per backend. Feed cost data into AV efficiency dimension. |
+| Trajectory Evaluator | After Phase 2 — assess full pod execution traces (DAG quality, cubelet output quality, synthesis coherence) against expected behavior. Feed into AV adjustments. |
 
 ---
 
