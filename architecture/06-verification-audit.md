@@ -477,6 +477,20 @@ retention_config {
 }
 ```
 
+### 3.7 Statistical Monitoring Thresholds
+
+The verification system continuously monitors system health metrics against formal thresholds:
+
+| Metric | Threshold | Action on Violation |
+| ------ | --------- | ------------------- |
+| `proof_success_rate` | >= 98% | Halt Rubik's Move rollouts if below |
+| `telemetry_coverage` | >= 90% | Flag cubelets without telemetry for review |
+| `interop_success_rate` | >= 95% | Suspend cross-device queries on failing fabric threads |
+| `payout_variance_std_dev` | < 0.1 | Audit economic model for fairness drift |
+| `zk_verifier_failure_rate` | < 2% over 24h | Halt all rollouts, trigger STK alert |
+
+These thresholds are defined in system configuration and enforced by the STK+ observability thread (see doc 08).
+
 ---
 
 ## 4. Public Readability
@@ -771,6 +785,8 @@ INV-14: STF fabric threads route domain-specific data to appropriate off-chain s
 INV-15: Light validation nodes can verify individual decisions via merkle proofs
 INV-16: The chain is designed to evolve into or integrate with Kusari without rewrite
 INV-17: Decision commitment objects are self-contained and independently verifiable
+INV-18: Statistical monitoring thresholds are evaluated continuously, not on-demand
+INV-19: Threshold violations trigger automatic protective actions (halt, suspend, audit)
 ```
 
 ---

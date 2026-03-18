@@ -605,6 +605,18 @@ ProofPerl is NOT a separate service - it is a module within the Authority Engine
 
 STK invariant definitions are loaded from the cubelet registry at boot and are **immutable at runtime**. Updating invariants requires a Rubik's Move (see Lattice Governance in [00-MYOS-master.md](00-MYOS-master.md)) with Level 4 (human-in-the-loop) approval and system reconfiguration.
 
+#### Adaptive Constraint Types
+
+Each STK invariant carries a constraint type that determines how its thresholds can evolve:
+
+| Type | Behavior | Example |
+| ---- | -------- | ------- |
+| **Hard** | Threshold never changes. Cannot be weakened via Rubik's Move. Equivalent to `invLocked = True`. | `safety.refusal_on_redline` |
+| **Soft** | Threshold can be adjusted via Rubik's Move with Level 4 human approval. | `explainability.required` (min_score adjustable) |
+| **Adaptive** | Threshold auto-tunes based on entity AV history. Entities with high safety AV may get slightly relaxed thresholds; those with violation history get tightened. | Fairness theta per-entity adjustment |
+
+Adaptive constraints use a feedback loop: ProofPerl evaluates the invariant → result + entity AV history fed to PerlFrame → PerlFrame computes adjusted threshold → next evaluation uses the new threshold. The adjustment range is bounded by the invariant's `min_threshold` and `max_threshold` parameters.
+
 ### 7.3 Language Choice Rationale
 
 The Authority Engine is implemented in **Haskell** for the following reasons:
@@ -905,6 +917,8 @@ INV-15: STK invariant updates require Level 4 (human-in-the-loop) approval + sys
 INV-16: ∀ cubelet model update: AV resets to floor (new model must re-earn trust)
 INV-17: Cubelet lattice position (Framework-Stage-Index) is permanent and immutable
 INV-18: ∀ AV dimension: maps to at least one PCCSCEFVRI value (ethical traceability)
+INV-19: Adaptive constraint thresholds are bounded by min_threshold and max_threshold parameters
+INV-20: Adaptive threshold adjustments are logged on-chain with before/after values
 ```
 
 These invariants should be verified via property-based testing (QuickCheck) and, for safety-critical deployments, via formal proof.

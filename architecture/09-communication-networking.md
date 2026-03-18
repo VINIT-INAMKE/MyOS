@@ -309,6 +309,20 @@ MULTIPLEXING:
   are serviced first when bandwidth is constrained)
 ```
 
+### 5.3 Fabric Thread Taxonomy
+
+STF fabric threads are classified into five categories:
+
+| Category | Threads | Purpose |
+| -------- | ------- | ------- |
+| **Social Infrastructure Protocols (SIPs)** | KnowledgeLedger, ResearchLedger, TalentLedger, EthosLedger, KarbonLedger | Core societal infrastructure — education, research, ethics, climate |
+| **Sectoral Protocols** | AgroLedger, HealthLedger, EduLedger, CityLedger | Domain-specific verticals — agriculture, healthcare, education, smart cities |
+| **Cross-Domain Bridges** | TokenBridge, IdentLedger, SchemaLedger | Identity, schema, and value transfer across domains |
+| **Ethical and Cultural Threads** | EthosLedger, consent frameworks | Value alignment and cultural stewardship |
+| **Resilience and Adaptation** | Stewardship maps, feedback loops | System health and adaptive governance |
+
+Each thread is a logical stream multiplexed over the P2P channel (see Section 5). Thread.Sync Rubik's Moves ensure consistency across devices.
+
 ---
 
 ## 6. Cross-Device Pod Communication
@@ -632,7 +646,7 @@ INV-14: Connection failures trigger automatic reconnection with exponential back
 ## 12. Interaction with Other Documents
 
 - **Boot & Trust Chain (07):** Network services initialized at Step 9. Device registered in ANS. Peers discovered.
-- **Runtime Infrastructure (08):** Network services run at P5 priority on the communication core. IPC handles cross-device data routing.
+- **Runtime Infrastructure (08):** Network services run at P5 priority on the communication core. IPC handles cross-device data routing. Container cubelets' network egress is enforced by L7 HTTP policy (per-endpoint, per-method, per-path) and routed through a Privacy Router for LLM API calls — see doc 08 sections 3.5-3.6.
 - **Authority Model (01):** Cross-device authority uses dual authorization. Post-quantum crypto for authority channels.
 - **Pod Assembly (03):** Cross-device cubelet selection uses ANS for discovery and qudag-network for transport.
 - **Cubelet I/O (04):** Cross-device pipeline edges add serialization + encryption overhead. Latency accounted for in time budgets.

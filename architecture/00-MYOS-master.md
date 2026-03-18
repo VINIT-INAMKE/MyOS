@@ -145,6 +145,27 @@ The frameworks form a vertical pipeline within each stage: **STA** defines inten
 
 **ProofPerl** is the execution engine for STK invariants - a formal proof runtime that evaluates constraint satisfaction. **PerlFrame** is the value system within STK that anchors all invariants to the PCCSCEFVRI ethical values. Together they form the kernel's enforcement mechanism: ProofPerl runs the checks, PerlFrame defines what the checks mean. See Section "STK Invariant Enforcement" in [01-authority-model.md](01-authority-model.md) for the dual-gate authorization flow.
 
+#### Dual Decomposition: Functional Columns vs. Organizational Scope
+
+The five frameworks (STA/STI/STD/STF/STK) describe **functional concerns** — what kind of processing each cubelet performs. A parallel decomposition describes **organizational scope** — the nesting of purpose, deployment, and coordination:
+
+| Functional (Architecture) | Organizational (Socio-Technical) | Relationship |
+| ------------------------- | -------------------------------- | ------------ |
+| **STA** (Abstraction) | **STSol** (Solution) | STSol is the crystallized unit of purpose. STA cubelets encode the intent that STSol captures. |
+| **STI** (Interpretation) | **STI** (Instance) | An Instance is an operational deployment of a Solution. STI cubelets provide the reasoning logic that each Instance runs. |
+| **STD** (Deliverance) | **STS** (System) | An STS is a system-of-systems that coordinates multiple Instances. STD cubelets execute the runtime that STS orchestrates. |
+| **STF** (Fabric) | **STF** (Fabric) | Same in both decompositions — the connective tissue. |
+| **STK** (Kernel) | **STK** (Kernel) | Same in both decompositions — the proof and assurance layer. |
+
+The **A/I/D triad** (Abstraction / Interpretation / Deliverance) operates as a **lifecycle pattern within each layer**, not only as the first three framework columns. Every framework goes through its own A/I/D cycle:
+- STA's A/I/D: define charter → interpret policy → deliver rules
+- STI's A/I/D: define logic model → interpret data → deliver classification
+- STD's A/I/D: define service spec → interpret request → deliver result
+- STF's A/I/D: define protocol → interpret schema → deliver connection
+- STK's A/I/D: define invariant → interpret state → deliver proof
+
+Both decompositions coexist. The functional columns (STA/STI/STD/STF/STK) define the **750-cubelet lattice**. The organizational scope (STSol/STI/STS/STF/STK) defines how solutions, instances, and systems **nest and coordinate**. A pod (STSol assembly) draws cubelets from the functional lattice and deploys them within an organizational instance.
+
 #### The Ten Stages (Rows)
 
 Each stage represents a domain of operation, from foundational infrastructure to ethical reflexion:
@@ -207,6 +228,20 @@ The CIG is **pre-seeded** at system initialization with the full lattice structu
 - **Horizontal** (cross-stage): STA-2-A → STA-3-A (data policy feeds AI policy)
 - **Diagonal** (cross-domain): STI-3-B → STD-8-A (AI fairness logic informs environmental MRV)
 
+#### DSL Operations
+
+Each framework layer maps to a canonical DSL verb that defines its primary operation:
+
+| Framework | DSL Verb | What It Does |
+| --------- | -------- | ------------ |
+| **STA** | `select{}` | Choose domain model, protocols, components, ethical anchors |
+| **STI** | `bind{}` | Connect abstract roles to real identities, data streams, infrastructure |
+| **STD** | `realize{}` | Materialize system-wide constructs (federated governance, interop networks) |
+| **STF** | `weave{}` | Integrate systems and threads together across boundaries |
+| **STK** | `enforce{} / verify{}` | Policy enforcement and proof validation |
+
+These verbs structure the cubelet pipeline: STA cubelets **select** intent → STI cubelets **bind** logic → STD cubelets **realize** execution → STF cubelets **weave** connections → STK cubelets **enforce** and **verify** invariants.
+
 ### Pods - Ephemeral Teams (STSol Assemblies)
 
 A **pod** is a temporary team of cubelets assembled to execute a specific task. Pods are:
@@ -216,7 +251,7 @@ A **pod** is a temporary team of cubelets assembled to execute a specific task. 
 - **Dissolved after task completion** - cubelets return to the pool
 - **Structurally informed** by the CIG - each pod corresponds to an **STSol** (Solution Pod), a vertical cross-section of the lattice
 
-An STSol defines the **template** for pod assembly: which cubelet positions are required, which edges must be satisfied, which invariants apply. For example, the `Env-MRV-Pod` STSol requires cubelets from STA-8, STI-8, STD-8, STF-8, STK-8 plus diagonal dependencies from Stage 4 (sensor data).
+An STSol defines the **template** for pod assembly: which cubelet positions are required, which edges must be satisfied, which invariants apply. Each STSol is grounded in a **Soul Paper** — a founding document that captures the solution's values, ethics charter, governance premises, and success criteria. The Soul Paper is the primary STA artifact that all other frameworks reference. It is stored as a System KB entry with confidence = 1000 (maximum, non-decaying). For example, the `Env-MRV-Pod` STSol requires cubelets from STA-8, STI-8, STD-8, STF-8, STK-8 plus diagonal dependencies from Stage 4 (sensor data).
 
 Pods communicate internally via a **typed data pipeline (DAG)** and **control messages**. The pipeline follows the framework order: STA governs → STI reasons → STD executes → STF records → STK proves. Cross-pod communication is capability-addressed (the requesting cubelet never knows which pod serves its request).
 
@@ -701,6 +736,20 @@ Sub-pods **cannot nest** (no sub-sub-pods). If a sub-pod needs more capability, 
 | Unverified output         | Tiered labels (verified / partial / unverified)              | Transparent about certainty, users know what's grounded                   |
 | Human in authority model  | Outside reinforcement loop                                   | Human opinions don't change AV - prevents optimizing for human approval   |
 | Session model             | Hybrid session pods + sub-pods                               | Long-lived sessions with ephemeral sub-task teams, no nesting             |
+
+---
+
+## Maturity Levels
+
+MYOS deployments are measured against three maturity levels:
+
+| Level | Name | Gate Criteria |
+| ----- | ---- | ------------- |
+| **L1** | Visible | All cubelets have defined I/O contracts. CIG populated. Logging active. |
+| **L2** | Interoperable | Cross-device pods operational. STF fabric threads synchronized. Interop success >= 95%. |
+| **L3** | Provable | Formal proofs coverage >= 85%. All STK invariants locked. Appeal SLA <= 72h. Zero unverified outputs in safety-critical paths. |
+
+Progression through levels is tracked via the Formal Coverage Ratio: `FCR = cubelets_with_formal_proofs / total_active_cubelets`. L3 requires FCR >= 0.85.
 
 ---
 

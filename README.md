@@ -42,3 +42,4 @@ No single component holds the whole picture - the architecture does.
 | Node types and orchestrator hierarchy     | [10-node-topology-orchestrator-hierarchy.md](architecture/10-node-topology-orchestrator-hierarchy.md) |
 | How repos map to architecture layers      | [11-repository-mapping.md](architecture/11-repository-mapping.md)                                     |
 | How knowledge is stored and governed      | [12-knowledge-base.md](architecture/12-knowledge-base.md)                                             |
+| Framework lifecycles and handshakes   | [13-framework-lifecycles.md](architecture/13-framework-lifecycles.md)                                 |

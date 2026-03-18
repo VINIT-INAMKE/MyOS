@@ -309,6 +309,95 @@ ORCHESTRATOR CONTAINER:
     - seccomp + capability drops still applied
 ```
 
+### 3.5 Container Network Policy Enforcement
+
+Tier 3 containers (LLM cubelets, orchestrators, cross-language cubelets) require network access for API calls (Ollama, external LLM services). MYOS enforces **L7 HTTP-level policy** on all container egress, adopting the pattern from NVIDIA OpenShell's policy engine.
+
+```
+CONTAINER NETWORK POLICY (per-cubelet, declarative):
+
+  Each container cubelet's manifest declares allowed network endpoints:
+
+  network_policy:
+    allowed_endpoints:
+      - binary: "*"                    # applies to all processes in container
+        endpoints:
+          - host: "localhost"
+            port: 11434               # Ollama API
+            methods: [POST]
+            paths: ["/api/generate", "/api/chat", "/api/embeddings"]
+          - host: "localhost"
+            port: 7687                # Neo4j (for CIG queries)
+            methods: [POST]
+            paths: ["*"]
+    default: deny                     # all other traffic blocked
+
+  ENFORCEMENT:
+    - L7 proxy intercepts all HTTP/HTTPS traffic from the container
+    - Each request checked against: binary → endpoint → method → path
+    - Non-matching requests are DENIED and logged
+    - DNS resolution restricted to allowed hostnames only
+
+  HOT-RELOAD:
+    - Network policies can be updated WITHOUT restarting the container
+    - Pod Orchestrator can tighten or relax endpoint access mid-execution
+    - Hot-reload signal triggers policy re-evaluation on next request
+    - Policy changes are authority-gated (requires sufficient AV on policy dimension)
+    - All policy changes logged to verification chain
+```
+
+### 3.6 Privacy Router (LLM API Proxy)
+
+All LLM cubelet API calls route through a **Privacy Router** — a credential-aware proxy that prevents leaking secrets into LLM context. Adopted from NVIDIA OpenShell's inference routing pattern.
+
+```
+PRIVACY ROUTER:
+
+  PURPOSE:
+    LLM cubelets call external APIs (Ollama, cloud LLM services).
+    The cubelet code must NEVER see or handle API credentials directly.
+    The Privacy Router intercepts outgoing LLM requests and:
+      1. Strips any caller credentials from the request
+      2. Injects the correct backend credentials (API keys, tokens)
+      3. Routes to the correct backend endpoint
+      4. Strips any credential-bearing headers from the response
+
+  ARCHITECTURE:
+    Container cubelet → HTTP request → Privacy Router (sidecar) → Backend API
+                                            │
+                                     Credentials injected
+                                     from agenix vault
+                                     (never in container env)
+
+  SECURITY PROPERTIES:
+    - API keys are NEVER mounted in the container filesystem
+    - API keys are NEVER passed as environment variables to cubelets
+    - API keys exist only in the Privacy Router process memory
+    - Privacy Router runs as a separate process with its own agenix secret
+    - If a cubelet is compromised, it cannot extract API credentials
+    - All requests/responses are logged (with credentials redacted)
+
+  CONFIGURATION:
+    privacy_router:
+      backends:
+        ollama:
+          upstream: "http://localhost:11434"
+          auth: none                         # local Ollama needs no auth
+        openai:
+          upstream: "https://api.openai.com"
+          auth:
+            type: bearer
+            secret: "agenix://openai-api-key"  # resolved from agenix vault
+        anthropic:
+          upstream: "https://api.anthropic.com"
+          auth:
+            type: header
+            header_name: "x-api-key"
+            secret: "agenix://anthropic-api-key"
+```
+
+**Implementation note:** When implementing the Privacy Router and L7 network policies, study the actual Rust source code in NVIDIA OpenShell (https://github.com/NVIDIA/OpenShell, Apache 2.0). The policy engine (`src/policy/`) and gateway routing code provide proven patterns for HTTP interception, Landlock integration, and hot-reloadable policy evaluation. Do not reimagine these from scratch.
+
 ---
 
 ## 4. Inter-Process Communication (IPC)
@@ -644,7 +733,43 @@ State transitions:
 
 ---
 
-## 8. Configuration
+## 8. STK+ Enhancement Threads
+
+The STK kernel evolves beyond basic invariant checking into **STK+** — additional runtime threads that provide resilience, observability, and adaptive governance.
+
+### 8.1 Resilience Layer
+- Self-healing logic: if a cubelet consistently fails (AV drops below threshold), the system automatically quarantines it and attempts pod restructure
+- Auto-recovery: if Authority Engine restarts from crash, cached state is restored from the last on-chain checkpoint
+- Circuit breaker pattern: if a fabric thread exceeds error rate threshold (>5% over 5 minutes), cross-device queries on that thread are suspended until health recovers
+
+### 8.2 Observability and Explainability
+- Every authority decision includes a human-readable explanation generated from the FailContext (observed value, threshold, invariant family)
+- XAI composer: an STD cubelet that takes ProofPerl results and generates natural language explanations for audit dashboards
+- BLAKE3 hash of all logs committed as merkle root every 5 minutes for tamper detection
+- Archive retention: 180 days for hot/warm, configurable years for cold
+
+### 8.3 Adaptive Governance
+- Hot-swappable network policies for container cubelets (from OpenShell L7 pattern, see Section 3.5)
+- STK invariant thresholds can be adjusted via Rubik's Move (Lock.Invariants for safety-critical, Soft constraints for operational)
+- Policy bundles flow from PerlFrame → ProofPerl; telemetry flows from ProofPerl → PerlFrame for adaptive threshold tuning
+- Invariant ConstraintType: Hard (never changes), Soft (Rubik's Move required), Adaptive (auto-tuned based on AV history)
+
+### 8.4 Inter-Kernel Federation
+- Multiple MYOS instances can federate their STK kernels via treaty verification
+- Remote attestation handshake: kernels exchange signed attestation of identity, code hash, and policy config
+- Treaty ledger: a shared fabric thread where federated kernels publish proofs of their integrity
+- M-of-N key authorization for kernel upgrades across federated instances
+- Cross-kernel invariant verification: if Instance A references data from Instance B, Instance B's STK proves the data satisfies B's invariants before A accepts it
+
+### 8.5 Quantum-Resilient Crypto Switching
+- The STK supports hot-switching cryptographic algorithms without system restart
+- Parallel old/new crypto during transition periods (dual-sign, verify both)
+- Survival analysis targeting 2035 for post-quantum readiness (ML-KEM-768, ML-DSA via qudag-crypto)
+- Fallback: if ZK verifier fails >2% over 24 hours, halt all Rubik's Move rollouts until resolved
+
+---
+
+## 9. Configuration
 
 ```
 runtime_config {
@@ -707,7 +832,7 @@ runtime_config {
 
 ---
 
-## 9. Invariants (Must Always Hold)
+## 10. Invariants (Must Always Hold)
 
 ```
 INV-1:  RT cores are exclusively owned by MYOS (isolcpus, no Linux scheduler interference)
@@ -728,11 +853,20 @@ INV-15: Orchestrator containers have higher resource limits but same security re
 INV-16: Cubelet Launcher is the single entry point for all cubelet lifecycle - dispatch is by isolation tier, not by runtime
 INV-17: ML cubelets use WASI-NN as the standard inference interface - cubelet code never imports a specific runtime
 INV-18: Safety-critical cubelets MUST use wasm_unikernel tier (double isolation) - wasm_native is only for non-safety-critical
+INV-19: All container cubelet network egress passes through L7 policy enforcement - no direct outbound connections
+INV-20: Container network policies are per-cubelet and enforce endpoint + HTTP method + path restrictions
+INV-21: Network policy hot-reload requires authority check (policy dimension AV) before applying
+INV-22: All LLM API calls route through the Privacy Router - cubelets never handle API credentials
+INV-23: API credentials exist only in Privacy Router process memory, sourced from agenix vault - never in container filesystem or environment
+INV-24: STK+ resilience thread monitors cubelet AV trajectories for anomalous drops
+INV-25: Observability merkle root committed every 5 minutes (configurable)
+INV-26: Inter-kernel federation requires mutual remote attestation before any data exchange
+INV-27: Crypto algorithm switching uses dual-sign period — both old and new must verify
 ```
 
 ---
 
-## 10. Interaction with Other Documents
+## 11. Interaction with Other Documents
 
 - **Boot & Trust Chain (07):** Runtime infrastructure is initialized during boot Steps 2-10. CPU layout, memory layout, and service startup order defined there.
 - **Authority Model (01):** Authority Engine runs as a dedicated Haskell process on the safety core (Core 1). IPC latency <5ms.
