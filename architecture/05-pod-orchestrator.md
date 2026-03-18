@@ -568,6 +568,27 @@ The Session Pod's Pod Orch manages idle behavior:
   - On new query after partial release → requests re-assembly of needed cubelets
 ```
 
+### 6.5 Reasoning Budget (Inspired by OpenClaw Thinking Levels)
+
+Pod Orchestrators can operate at different reasoning depths depending on task criticality, trading accuracy for cost:
+
+| Level | Behavior | Use Case |
+| ----- | -------- | -------- |
+| **Minimal** | Single-pass reasoning, no self-correction | Routine data pipeline management |
+| **Standard** | Normal LLM reasoning with one review pass | Most pod orchestration tasks |
+| **Deep** | Extended chain-of-thought with self-verification | Safety-critical operations, complex DAG restructuring |
+
+The reasoning level is set in the Pod Orchestrator's template and can be overridden per-task by the creating orchestrator (System/Domain/Deployment). Higher reasoning budgets consume more LLM tokens but produce more reliable orchestration decisions.
+
+### 6.6 Per-Session Tool Allowlisting
+
+Each Session Pod carries an explicit **tool policy** that restricts which cubelet capabilities are accessible within that session, independent of MBAC authority checks. This provides defense-in-depth:
+
+- MBAC governs whether an entity HAS authority (continuous, earned)
+- Tool policy governs whether a SESSION ALLOWS a capability (declarative, per-session)
+
+Both must pass for a cubelet to execute within a session. Tool policies are defined at session creation and are immutable for the session lifetime.
+
 ---
 
 ## 7. Configuration
@@ -652,3 +673,4 @@ INV-21: Pod Orch model assignment follows the LLM cost strategy: open-source for
 - **Cubelet I/O Contract (04-cubelet-io-contract.md):** Pod Orch builds the DAG using CIG structural constraints and framework ordering. Manages the pipeline, handles control messages, and is responsible for pipeline logging (off-chain) and decision logging (on-chain). Decision context logging creates a parallel reasoning DAG alongside the data DAG.
 - **Node Topology (10-node-topology-orchestrator-hierarchy.md):** Defines the LLM cost strategy - Pod Orchs use open-source models (Llama 8B / Phi-3), not paid models. This is the authoritative source for model assignment.
 - **Knowledge Base (12-knowledge-base.md):** The Pod Orchestrator manages the Pod KB lifecycle - creating it at pod assembly and destroying it at dissolution. The CIG provides structural backbone; the Pod KB adds runtime knowledge on top. The coherence self-check mechanism uses context checkpoints stored in the KB to reload context when degradation is detected.
+- **OpenClaw/NemoClaw patterns adopted:** Inference Router (transparent model routing with privacy-aware backend selection), reasoning budget levels, per-session tool allowlisting. See cubelet-runtime/src/inference_router.rs.

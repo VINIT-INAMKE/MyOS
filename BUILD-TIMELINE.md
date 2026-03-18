@@ -809,6 +809,9 @@ myos/
 - DAG construction must respect DSL verb hierarchy: STA `select{}` → STI `bind{}` → STD `realize{}` → STF `weave{}` → STK `enforce{}` — this is the canonical ordering from the DSL spec, not just framework alphabetical order
 - Rollout controls for pod changes: canary deployment (route subset of traffic to new DAG), soak period (minimum observation window before full cutover), auto-rollback if `proof_failure_rate` exceeds threshold
 - Coherence self-check now includes cross-framework handshake validation — Pod Orch must verify all handshake contracts remain valid after any DAG restructure or cubelet replacement
+- **OpenClaw patterns:** Reasoning budget (minimal/standard/deep) per Pod Orch, per-session tool allowlisting as defense-in-depth complementing MBAC
+- **NemoClaw patterns:** Inference Router already implemented in cubelet-runtime (transparent routing, privacy-aware, SecretResolver integration)
+- **Workflow gates:** Lobster-inspired approval checkpoints in STSol templates for human-in-the-loop at pipeline stages (not just conflict resolution Level 4)
 
 **Exit criteria:** Pod Orch receives task + cubelets → builds DAG respecting framework ordering → executes pipeline → synthesizes result → handles cubelet failure with tier 1-2 recovery. Session pod persists across multiple queries.
 
@@ -973,6 +976,7 @@ It also forces you to **train real models early**. You can't test STI cubelets (
 - Privacy Router configuration needed for STD-3-A (inference runtime) calling Ollama API — the container cubelet must route LLM API calls through the Privacy Router to prevent prompt leakage and enforce data sovereignty
 - L7 network policies needed for container cubelets (from OpenShell patterns in doc 08) — STD-3-A and any other Tier 3 container cubelets require explicit L7 (application-layer) network policies; default is deny-all
 - Adaptive constraint support: `explainability.required` is Soft (adjustable with Level 4 authority), `safety.refusal_on_redline` is Hard (immutable, cannot be overridden at any authority level)
+- **Inference routing:** InferenceRouter created per-pod at assembly, shared by STD-3-A (inference runtime). Routes to local Ollama by default, privacy-aware failover to cloud if configured. SecretResolver handles API key isolation.
 
 ### Model Training Plan for Stage 3
 
@@ -1134,6 +1138,7 @@ These are cross-cutting infrastructure extensions that get wired in alongside or
 | Ouroboros chain | After Component 9 SQLite is proven, before Stage 4 | Implementation should include statistical monitoring thresholds (`proof_success >= 98%`, `telemetry_coverage >= 90%`, `interop_success >= 95%`) as on-chain health gates — breaching a threshold triggers chain-level alert escalation |
 | qudag-network | After Stage 0 identity cubelets are deployed | Integration should include inter-kernel federation protocol — qudag nodes that span kernel boundaries must route disputes through the treaty ledger and respect federation handshake contracts |
 | Rubik's Moves (DAG restructuring) | After Pod Orch is stable with 2+ domain verticals | Implementation must respect `ConstraintType`: Hard constraints cannot be modified by any Rubik's Move (they are immutable invariants); Soft constraints require Level 4 authority to restructure around; Adaptive constraints auto-tune within declared bounds and can be freely reorganized |
+| Inference Router wiring | When building Stage 3 cubelets, wire InferenceRouter as pod-level resource — router created at pod assembly, shared by all LLM cubelets, SecretResolver loads from agenix |
 
 ---
 
