@@ -172,6 +172,16 @@ Tallying:
   score_b = sum of AV[relevant_dimension] for all voters who chose proposal_b
   total   = score_a + score_b
 
+AV-Weighted Voting Formula:
+  For each voter i with AV_i on the relevant dimension:
+    weighted_score(proposal) = Σ AV_i  for all voters i who chose that proposal
+
+  confidence = max(score_a, score_b) / (score_a + score_b)
+
+  This ensures that entities with higher authority on the relevant dimension
+  carry proportionally more influence. A single high-AV entity (e.g., AV=800)
+  can outweigh multiple low-AV entities (e.g., 3 × AV=200 = 600).
+
 Decision:
   if score_a > score_b:
       winner = proposal_a

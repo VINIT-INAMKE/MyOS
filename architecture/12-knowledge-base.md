@@ -715,6 +715,22 @@ PROMOTION FLOW (upward):
        - Marked as "promoted from domain"
        - Initial confidence = domain confidence × 0.7 (less discount - domain-verified)
        - verification_status = partially_verified
+
+PROMOTION CONFIDENCE FORMULA:
+  promoted_confidence = current_confidence × discount_factor
+
+  | Transition        | Discount Factor | Rationale                              |
+  |-------------------|-----------------|----------------------------------------|
+  | Pod → Domain      | 0.5             | Pod knowledge is speculative, needs    |
+  |                   |                 | independent domain-level confirmation  |
+  | Domain → System   | 0.7             | Domain-verified, less discount needed  |
+
+  Example: Pod entry at confidence 800 promotes to Domain at 800 × 0.5 = 400.
+  After 2 domain confirmations it reaches 600+. Domain Orch then promotes to
+  System at 600 × 0.7 = 420, where it needs further system-level confirmation.
+
+  This cascading discount ensures promoted entries do not inherit
+  unjustified confidence from lower tiers.
 ```
 
 ---
