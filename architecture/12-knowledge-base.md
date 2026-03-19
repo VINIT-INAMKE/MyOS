@@ -985,3 +985,31 @@ COMPLIANCE PROPERTIES:
 - **Communication (09):** STF fabric threads are multiplexed across P2P channels - Domain KB queries route through the appropriate fabric thread. Cross-device KB access uses CIG FEDERATES edges.
 - **Node Topology (10):** System KB + CIG on core server. Domain KBs (mapped to fabric threads) on domain servers. Pod KBs ephemeral on compute nodes. Edge sensors contribute Stage 4 sensor data entries with high decay rates.
 - **Repository Mapping (11):** FACT repo provides deterministic KB query tool. CIG (Neo4j) is pre-seeded with 750 nodes and 1500+ edges from the cubelet registry at boot.
+
+---
+
+## 14. Implementation Status
+
+**Phase 1 complete.** The knowledge-base crate is fully implemented in Rust.
+
+### Modules (7)
+
+| Module | Purpose |
+| ------ | ------- |
+| `hierarchy` | System / Domain / Pod KB hierarchy with downward inheritance and lateral isolation |
+| `confidence` | MBAC-style confidence scoring — diminishing-returns reward, constant penalty, lazy decay |
+| `query` | Deterministic lookup + semantic search + LLM fallback query protocol |
+| `contradiction` | Contradiction detection and 4-level escalation resolution |
+| `promotion` | Pod-to-Domain and Domain-to-System knowledge promotion with cascading confidence discount |
+| `erasure` | GDPR / DPDP right-to-erasure cascade — off-chain deletion, on-chain tombstone, promotion-chain propagation |
+| `lib` (types) | Shared types, entry schema, error types, and trait definitions |
+
+### Key Properties
+
+- **119 tests** covering hierarchy traversal, confidence math (reward/penalty/decay), query protocol ordering, contradiction detection and resolution, promotion discount cascades, erasure propagation, and cross-module integration
+- **MBAC-style confidence scoring** — same diminishing-returns / constant-penalty / lazy-decay math as Authority Values
+- **Self-confirmation prevention** — an agent cannot confirm its own KB entries (prevents confidence inflation)
+- **GDPR erasure cascade** — erasing an entry propagates through all promotion copies (pod, domain, system) and logs an on-chain tombstone event
+- **System-wide integration:**
+  - Daemon Phase 8 — knowledge-base service registered and started during boot
+  - Pod-orchestrator `KbContextRetriever` — Pod Orch queries the KB hierarchy before every LLM invocation, injecting verified/partial/unverified context

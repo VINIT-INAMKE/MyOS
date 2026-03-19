@@ -803,3 +803,28 @@ INV-19: Threshold violations trigger automatic protective actions (halt, suspend
 - **Authority Model (01) - STK Dual-Gate:** STK invariant satisfaction is enforced by the Authority Engine's dual-gate model. PROVES edges in the CIG are verified before any pod execution proceeds, and results are logged on-chain.
 - **STF Fabric Threads:** The 11+ named ledgers (EthosLedger, KarbonLedger, etc.) route domain-specific verification data to appropriate off-chain stores. Each fabric thread determines which off-chain tier and retention policy applies to its data.
 - **Knowledge Base (12-knowledge-base.md):** KB metadata changes (create, update, deprecate entries) are on-chain events. KB content is stored off-chain with hash verification using the same content-addressed storage infrastructure. KB confidence scores (0-1000) follow the same mathematical model as Authority Vectors.
+
+---
+
+## 11. Implementation Status
+
+**Phase 1 complete.** The verification-audit crate is fully implemented in Rust.
+
+### Modules (5)
+
+| Module | Purpose |
+| ------ | ------- |
+| `merkle` | Merkle tree construction and proof verification |
+| `offchain` | Off-chain event log with hash chain integrity |
+| `onchain` | On-chain decision entry creation and validation |
+| `fabric` | STF fabric thread routing for domain-specific audit data |
+| `lib` (types) | Shared types, error types, and trait definitions |
+
+### Key Properties
+
+- **BLAKE3 hash chains with domain separation** — each hash chain uses domain-tagged prefixes to prevent cross-domain collision
+- **48 tests** covering merkle proof generation/verification, hash chain integrity, off-chain append-only semantics, on-chain entry structure, and fabric routing
+- **System-wide integration:**
+  - Daemon Phase 7 — verification service registered and started during boot
+  - Data-pipeline logging — pipeline edge transfers produce off-chain audit entries
+  - Conflict-resolution on-chain logging — all 4-level resolution outcomes are committed as on-chain entries
